@@ -173,6 +173,29 @@ They should exit with the Ryoku-on-Fedora guard message rather than invoking pac
 
 User-scoped commands that do not cross that boundary remain available through the underlying Ryoku CLI.
 
+## 10. Removal / rollback test
+
+Stay in the **GNOME** fallback session. Do not run removal from inside Ryoku/Hyprland.
+
+Run:
+
+```bash
+bash tests/vm/remove-phase1.sh \
+  ~/.local/state/ryoku-fedora-test/before.state
+```
+
+The helper:
+
+- runs the installer-generated `restore.sh`
+- restores any pre-existing Hyprland/Quickshell/qylock configuration that was moved aside
+- removes Ryoku-created user files when no pre-install version existed
+- removes the managed `Ryoku` GDM session entry
+- removes only `ryoku-xdg-desktop-portal-hyprland` and `ryoku-hyprland`
+- does not autoremove Fedora dependencies
+- verifies the original Fedora kernel, SELinux, GDM, PAM, NetworkManager and boot state again
+
+After removal, reboot once and confirm Fedora returns directly to its original GDM/GNOME path.
+
 ## Pass criteria
 
 M1 VM validation passes only when:
@@ -184,5 +207,8 @@ M1 VM validation passes only when:
 - the before/after host-preservation harness passes
 - no Arch package/boot/driver manager was invoked
 - the VM can reboot back into the original Fedora boot path
+- the Phase 1 removal helper succeeds from GNOME
+- the Ryoku session and Ryoku compositor RPMs are absent after removal
+- the post-removal Fedora host-preservation check passes
 
 After this gate, the next major blocker is replacing the externally supplied Hyprland with the Ryoku-owned Fedora RPM/COPR compositor + portal + plugin stack.
