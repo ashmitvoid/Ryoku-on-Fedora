@@ -105,3 +105,96 @@ func stepSessionFedora(e *engine) error {
 	}
 	return nil
 }
+
+
+func fedoraReplaceOnce(s, old, new, label string) (string, error) {
+	if n := strings.Count(s, old); n != 1 {
+		return "", fmt.Errorf("%s: expected one deploy.sh anchor, found %d", label, n)
+	}
+	return strings.Replace(s, old, new, 1), nil
+}
+
+func fedoraReplaceFirst(s, old, new, label string) (string, error) {
+	if !strings.Contains(s, old) {
+		return "", fmt.Errorf("%s: deploy.sh anchor not found", label)
+	}
+	return strings.Replace(s, old, new, 1), nil
+}
+
+func patchFedoraDeployText(s string) (string, error) {
+	if strings.Contains(s, "host_preserve=\"${RYOKU_HOST_PRESERVE:-0}\"") {
+		return s, nil
+	}
+	var err error
+
+	s, err = fedoraReplaceOnce(s,
+		"reload=1\n[[ \"${1:-}\" == \"--no-reload\" ]] && reload=0\n",
+		"reload=1\n[[ \"${1:-}\" == \"--no-reload\" ]] && reload=0\nhost_preserve=\"${RYOKU_HOST_PRESERVE:-0}\"\n",
+		"host preserve flag")
+	if err != nil {
+		return "", err
+	}
+
+	s, err = fedoraReplaceOnce(s,
+		"  printf '    install it:  sudo pacman -S --needed go\\n' >&2\n",
+		"  if (( host_preserve )); then\n    printf '    install it:  sudo dnf install golang\\n' >&2\n  else\n    printf '    install it:  sudo pacman -S --needed go\\n' >&2\n  fi\n",
+		"Go install hint")
+	if err != nil {
+		return "", err
+	}
+
+	s, err = fedoraReplaceOnce(s,
+		"for s in \"$here/../../system/extras\"/ryoku-*; do\n  install -m755 \"$s\" \"$bindir/${s##*/}\"\ndone\n# the extras actuator (renamed from ryoku-extras-install); the ryoku-* glob\n# above no longer matches it, so install it by name.\ninstall -m755 \"$here/../../system/extras/ryostore-install\" \"$bindir/ryostore-install\"\n",
+		"if (( ! host_preserve )); then\n  for s in \"$here/../../system/extras\"/ryoku-*; do\n    install -m755 \"$s\" \"$bindir/${s##*/}\"\n  done\n  install -m755 \"$here/../../system/extras/ryostore-install\" \"$bindir/ryostore-install\"\nelse\n  say \"host-preserving mode: skipped Arch package actuators (RyoStore system installs stay disabled)\"\nfi\n",
+		"Arch package actuators")
+	if err != nil {
+		return "", err
+	}
+
+	s, err = fedoraReplaceFirst(s,
+		"if command -v sudo >/dev/null 2>&1; then\n",
+		"if (( ! host_preserve )) && command -v sudo >/dev/null 2>&1; then\n",
+		"privileged host block")
+	if err != nil {
+		return "", err
+	}
+
+	s, err = fedoraReplaceOnce(s,
+		"qtver=\"$(pacman -Q qt6-base 2>/dev/null | awk '{print $2}')\"\n",
+		"qtver=\"$(pkg-config --modversion Qt6Core 2>/dev/null || pacman -Q qt6-base 2>/dev/null | awk '{print $2}')\"\n",
+		"Qt version detection")
+	if err != nil {
+		return "", err
+	}
+
+	return s, nil
+}
+
+func prepareFedoraPayload(e *engine) error {
+	if !isFedoraHost(e.f) {
+		return nil
+	}
+	path := filepath.Join(e.payload, "ryoku", "shell", "deploy.sh")
+	if e.dry {
+		e.say("DRYRUN: apply Fedora host-preserving overlay to " + path)
+		return nil
+	}
+
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read Fedora deploy payload: %w", err)
+	}
+	patched, err := patchFedoraDeployText(string(b))
+	if err != nil {
+		return err
+	}
+	st, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(path, []byte(patched), st.Mode().Perm()); err != nil {
+		return fmt.Errorf("write Fedora deploy payload: %w", err)
+	}
+	e.say("prepared Fedora host-preserving source payload")
+	return nil
+}
