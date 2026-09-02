@@ -126,6 +126,13 @@ def patch_engine(path: Path) -> None:
         "verify Fedora session",
     )
 
+    sparse_old = 'append([]string{"sparse-checkout", "set"}, sparsePaths...)'
+    sparse_new = 'append([]string{"sparse-checkout", "set"}, payloadSparsePathsFor(e.d())...)'
+    sparse_count = s.count(sparse_old)
+    if sparse_count != 2:
+        raise SystemExit(f"source payload sparse paths: expected 2 anchors, found {sparse_count}")
+    s = s.replace(sparse_old, sparse_new)
+
     write(path, s)
 
 
