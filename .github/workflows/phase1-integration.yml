@@ -1,0 +1,69 @@
+name: Phase 1 Fedora integration
+
+on:
+  push:
+    branches: [phase1-safe-session]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  upstream-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Fedora port
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned Ryoku upstream
+        uses: actions/checkout@v4
+        with:
+          repository: neur0map/ryoku-arch
+          ref: 85cd1cbd1f9cd90f72283fbad9094772156ec4f3
+          path: upstream
+
+      - name: Set up upstream Go toolchain
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: upstream/ryoku-shell-installer/go.mod
+          cache-dependency-path: upstream/ryoku-shell-installer/go.sum
+
+      - name: Validate overlay applicator
+        run: python3 -m py_compile scripts/apply-fedora-overlay.py
+
+      - name: Apply Fedora overlay
+        run: python3 scripts/apply-fedora-overlay.py upstream
+
+      - name: Check patch cleanliness
+        run: git -C upstream diff --check
+
+      - name: Check portable deploy syntax
+        run: bash -n upstream/ryoku/shell/deploy.sh
+
+      - name: Verify host-preserving gates exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'RYOKU_HOST_PRESERVE=1' upstream/ryoku-shell-installer/engine.go
+          grep -F 'if (( ! host_preserve )) && command -v sudo' upstream/ryoku/shell/deploy.sh
+          grep -F 'skipped Arch package actuators' upstream/ryoku/shell/deploy.sh
+          grep -F 'X-Ryoku-Fedora-Port=true' upstream/ryoku-shell-installer/fedora.go
+          grep -F 'skipping ryoku doctor until Fedora-aware reconcilers land' upstream/ryoku-shell-installer/engine.go
+
+      - name: Run upstream installer tests with Fedora overlay
+        working-directory: upstream/ryoku-shell-installer
+        run: go test ./...
+
+      - name: Build integrated installer
+        working-directory: upstream/ryoku-shell-installer
+        run: go build -trimpath -o /tmp/ryoku-shell-install .
+
+      - name: Smoke-test Fedora dry-run plan
+        working-directory: upstream/ryoku-shell-installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -x /tmp/ryoku-shell-install
+          go test -run 'TestFedoraSafePlan|TestFedoraPlanDoesNotOfferHostMutationToggles|TestFedoraSessionDesktop|TestDetectDistro' .
