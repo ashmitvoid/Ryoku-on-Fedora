@@ -10,11 +10,15 @@
 # =============================================================================
 %global portal_version          1.4.1
 %global upstream_name           xdg-desktop-portal-hyprland
-%global hyprland_min_ver        0.55.0
+%global hyprland_version        0.56.2
 %global hyprwayland_scanner_ver 0.4.6
 %global hyprutils_ver           0.14.0
 %global hyprlang_ver            0.6.8
 %global hyprland_protocols_ver  0.7.0
+
+# The portal links against the private Ryoku Hyprland ABI. Filter those
+# SONAME auto-requires and depend on the exact compositor EVR instead.
+%global __requires_exclude ^lib(hyprutils|hyprlang|hyprwayland-scanner)\\.so
 
 Name:           ryoku-xdg-desktop-portal-hyprland
 Version:        %{portal_version}
@@ -58,7 +62,7 @@ BuildRequires:  qt6-qtbase-devel
 BuildRequires:  qt6-qtwayland-devel
 
 # Runtime deps
-Requires:       ryoku-hyprland >= 0.56.2
+Requires:       ryoku-hyprland = %{hyprland_version}-1%{?dist}
 Requires:       xdg-desktop-portal
 Requires:       pipewire >= 1.1.82
 
