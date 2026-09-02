@@ -19,17 +19,17 @@ jobs:
 
     steps:
       - name: Checkout Ryoku-on-Fedora
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout pinned Ryoku upstream
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: neur0map/ryoku-arch
           ref: ${{ env.RYOKU_UPSTREAM_SHA }}
           path: upstream
 
       - name: Set up Go from upstream
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: upstream/ryoku-shell-installer/go.mod
           cache: false
@@ -51,6 +51,13 @@ jobs:
         working-directory: upstream/ryoku-shell-installer
         run: go build -trimpath -o /tmp/ryoku-shell-install-fedora .
 
+      - name: Upload patched installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ryoku-shell-install-fedora
+          path: /tmp/ryoku-shell-install-fedora
+          if-no-files-found: error
+
       - name: Validate deploy script
         run: bash -n upstream/ryoku/shell/deploy.sh
 
@@ -60,7 +67,9 @@ jobs:
           grep -q 'stepSessionFedora' upstream/ryoku-shell-installer/engine.go
           grep -q 'RYOKU_QYLOCK_USER_ONLY=1' upstream/ryoku-shell-installer/fedora_session.go
           grep -q 'Name=Ryoku' upstream/ryoku-shell-installer/fedora_session.go
-          ! grep -A80 'func stepSessionFedora' upstream/ryoku-shell-installer/fedora_session.go | grep -E '/etc/pam.d|/etc/sddm|wifi.backend'
+          ! sed -n '/func stepSessionFedora/,/^}/p' upstream/ryoku-shell-installer/fedora_session.go \
+            | grep -Ev '^[[:space:]]*//' \
+            | grep -E '"/etc/pam.d|"/etc/sddm|wifi.backend'
 
       - name: Run isolated adapter tests
         working-directory: prototype
