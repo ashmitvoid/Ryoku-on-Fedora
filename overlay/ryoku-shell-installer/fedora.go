@@ -28,6 +28,25 @@ func enforceFedoraSafePlan(f *facts, p *plan) {
 	p.greeter = false
 }
 
+func payloadSparsePathsFor(d *distro) []string {
+	if d == nil || !d.fromSource {
+		return sparsePaths
+	}
+	out := append([]string{}, sparsePaths...)
+	out = append(out,
+		"ryoku/shell",
+		"ryoku/hyprland",
+		"ryoku/hub",
+		"ryoku/rashin",
+		"ryoku/cli",
+		"ryoku/ui",
+		"system/hardware",
+		"system/extras",
+		"system/containers",
+	)
+	return out
+}
+
 func fedoraSessionDesktop() string {
 	return "[Desktop Entry]\n" +
 		"Name=Ryoku\n" +
