@@ -73,6 +73,43 @@ def patch_engine(path: Path) -> None:
 
     s = replace_once(
         s,
+        'func stepSysupgrade(e *engine) error {\n'
+        '\td := e.d()\n',
+        'func stepSysupgrade(e *engine) error {\n'
+        '\td := e.d()\n'
+        '\tif isFedoraHost(e.f) {\n'
+        '\t\te.say("Fedora host-preserving mode: skipping automatic full-system upgrade")\n'
+        '\t\treturn nil\n'
+        '\t}\n',
+        "skip automatic Fedora system upgrade",
+    )
+
+    s = replace_once(
+        s,
+        'func stepConflicts(e *engine) error {\n',
+        'func stepConflicts(e *engine) error {\n'
+        '\tif isFedoraHost(e.f) {\n'
+        '\t\te.say("Fedora host-preserving mode: not removing host packages or disabling existing desktop daemons")\n'
+        '\t\treturn nil\n'
+        '\t}\n',
+        "skip Fedora conflict removals",
+    )
+
+    s = replace_once(
+        s,
+        '\tfor _, rel := range backupMove {\n'
+        '\t\tif err := saveOne(rel, true); err != nil {\n',
+        '\tfor _, rel := range backupMove {\n'
+        '\t\tif isFedoraHost(e.f) && rel == ".config/xdg-desktop-portal" {\n'
+        '\t\t\te.say("Fedora host-preserving mode: keeping ~/.config/xdg-desktop-portal in place")\n'
+        '\t\t\tcontinue\n'
+        '\t\t}\n'
+        '\t\tif err := saveOne(rel, true); err != nil {\n',
+        "preserve Fedora portal config",
+    )
+
+    s = replace_once(
+        s,
         'func stepPayload(e *engine) error {\n',
         'func stepPayload(e *engine) error {\n'
         '\tif isFedoraHost(e.f) {\n'
@@ -89,6 +126,9 @@ def patch_engine(path: Path) -> None:
         '\tenv := []string(nil)\n'
         '\tif isFedoraHost(e.f) {\n'
         '\t\tenv = []string{"RYOKU_HOST_PRESERVE=1", "RYOKU_DISTRO=fedora"}\n'
+        '\t}\n'
+        '\tif isFedoraHost(e.f) {\n'
+        '\t\treturn e.cmd(filepath.Join(e.payload, "ryoku", "shell"), env, "bash", script, "--no-reload")\n'
         '\t}\n'
         '\treturn e.cmd(filepath.Join(e.payload, "ryoku", "shell"), env, "bash", script)\n',
         "stepBuild host preserve",
@@ -113,6 +153,17 @@ def patch_engine(path: Path) -> None:
         '\t// host-owned on Fedora M1; only the Ryoku/Hyprland layout is seeded.\n'
         '\tif azerty && !isFedoraHost(e.f) {\n',
         "Fedora keyboard host preservation",
+    )
+
+    s = replace_once(
+        s,
+        'func stepFish(e *engine) error {\n',
+        'func stepFish(e *engine) error {\n'
+        '\tif isFedoraHost(e.f) {\n'
+        '\t\te.say("Fedora host-preserving mode: keeping the current login shell")\n'
+        '\t\treturn nil\n'
+        '\t}\n',
+        "keep Fedora login shell",
     )
 
     s = replace_once(
@@ -256,6 +307,23 @@ def patch_deploy(path: Path) -> None:
 
     s = replace_once(
         s,
+        'for s in "$here/../../system/hardware"/*/ryoku-* "$here/../../system/containers"/ryoku-*; do\n'
+        '  [[ -f $s && -x $s ]] || continue\n'
+        '  install -m755 "$s" "$bindir/${s##*/}"\n'
+        'done\n',
+        'if (( ! host_preserve )); then\n'
+        '  for s in "$here/../../system/hardware"/*/ryoku-* "$here/../../system/containers"/ryoku-*; do\n'
+        '    [[ -f $s && -x $s ]] || continue\n'
+        '    install -m755 "$s" "$bindir/${s##*/}"\n'
+        '  done\n'
+        'else\n'
+        '  say "host-preserving mode: skipped Arch hardware/container actuators"\n'
+        'fi\n',
+        "skip Arch hardware actuators",
+    )
+
+    s = replace_once(
+        s,
         'for s in "$here/../../system/extras"/ryoku-*; do\n'
         '  install -m755 "$s" "$bindir/${s##*/}"\n'
         'done\n'
@@ -273,6 +341,29 @@ def patch_deploy(path: Path) -> None:
         '  say "host-preserving mode: skipped Arch package actuators (RyoStore system installs stay disabled)"\n'
         'fi\n',
         "skip Arch package actuators",
+    )
+
+    s = replace_once(
+        s,
+        'install -m755 "$here/../cli/ryoku" "$bindir/ryoku"\n',
+        'install -m755 "$here/../cli/ryoku" "$bindir/ryoku"\n'
+        'if (( host_preserve )); then\n'
+        '  mv -f "$bindir/ryoku" "$bindir/ryoku.real"\n'
+        '  cat > "$bindir/ryoku" <<\'EOF\'\n'
+        '#!/usr/bin/env bash\n'
+        'set -euo pipefail\n'
+        'case "${1:-}" in\n'
+        '  update|doctor|recovery|rollback|snapshots|track|deploy|security-key|keyboard)\n'
+        '    printf \'ryoku: %s is temporarily disabled by Ryoku-on-Fedora Phase 1; Fedora still owns system management.\\n\' "${1:-command}" >&2\n'
+        '    exit 2\n'
+        '    ;;\n'
+        'esac\n'
+        'exec "$(dirname "$0")/ryoku.real" "$@"\n'
+        'EOF\n'
+        '  chmod 0755 "$bindir/ryoku"\n'
+        '  say "installed Fedora safety wrapper around Arch system-management CLI commands"\n'
+        'fi\n',
+        "guard Fedora ryoku CLI",
     )
 
     s = replace_first(
@@ -298,8 +389,33 @@ def patch_deploy(path: Path) -> None:
     s = replace_once(
         s,
         'qtver="$(pacman -Q qt6-base 2>/dev/null | awk \'{print $2}\')"\n',
-        'qtver="$(pkg-config --modversion Qt6Core 2>/dev/null || pacman -Q qt6-base 2>/dev/null | awk \'{print $2}\')"\n',
+        'qtver=""\n'
+        'if command -v qtpaths6 >/dev/null 2>&1; then\n'
+        '  qtver="$(qtpaths6 --qt-version 2>/dev/null || true)"\n'
+        'elif pkg-config --exists Qt6Core 2>/dev/null; then\n'
+        '  qtver="$(pkg-config --modversion Qt6Core 2>/dev/null || true)"\n'
+        'elif command -v pacman >/dev/null 2>&1; then\n'
+        '  qtver="$(pacman -Q qt6-base 2>/dev/null | awk \'{print $2}\')"\n'
+        'fi\n',
         "portable Qt version detection",
+    )
+
+    s = replace_once(
+        s,
+        'if command -v makepkg >/dev/null 2>&1 && pkg-config --exists hyprland 2>/dev/null; then\n',
+        'if (( ! host_preserve )) && command -v makepkg >/dev/null 2>&1 && pkg-config --exists hyprland 2>/dev/null; then\n',
+        "skip Arch Hyprland plugin packaging",
+    )
+
+    s = replace_once(
+        s,
+        'install -Dm644 "$here/portals/hyprland-portals.conf" "$cfg/xdg-desktop-portal/hyprland-portals.conf"\n',
+        'if (( ! host_preserve )) || (command -v rpm >/dev/null 2>&1 && rpm -q xdg-desktop-portal-hyprland >/dev/null 2>&1); then\n'
+        '  install -Dm644 "$here/portals/hyprland-portals.conf" "$cfg/xdg-desktop-portal/hyprland-portals.conf"\n'
+        'else\n'
+        '  say "host-preserving mode: xdg-desktop-portal-hyprland is absent; keeping host portal policy untouched"\n'
+        'fi\n',
+        "preserve Fedora portal policy",
     )
 
     write(path, s)
