@@ -79,6 +79,8 @@ jobs:
           grep -F 'kept Chromium flags untouched' upstream/ryoku/shell/deploy.sh
           grep -F 'kept the host user icon cache untouched' upstream/ryoku/shell/deploy.sh
           grep -F 'X-Ryoku-Fedora-Port=true' upstream/ryoku-shell-installer/fedora.go
+          grep -F 'return stepConfigsFedora(e)' upstream/ryoku-shell-installer/engine.go
+          grep -F 'skipping broad ryoku materialize; finalizing Ryoku-owned config only' upstream/ryoku-shell-installer/fedora.go
           grep -F 'skipping ryoku doctor until Fedora-aware reconcilers land' upstream/ryoku-shell-installer/engine.go
 
       - name: Run upstream installer tests with Fedora overlay
