@@ -78,3 +78,26 @@ func TestFedoraSessionDesktop(t *testing.T) {
 		t.Fatal("Fedora session registration must not depend on SDDM")
 	}
 }
+
+func TestSourcePayloadIncludesDeployInputs(t *testing.T) {
+	paths := payloadSparsePathsFor(fedoraLinux)
+	got := map[string]bool{}
+	for _, p := range paths {
+		got[p] = true
+	}
+	for _, want := range []string{
+		"ryoku/shell",
+		"ryoku/hyprland",
+		"ryoku/hub",
+		"ryoku/rashin",
+		"ryoku/cli",
+		"ryoku/ui",
+		"system/hardware",
+		"system/extras",
+		"system/containers",
+	} {
+		if !got[want] {
+			t.Fatalf("source payload missing %s", want)
+		}
+	}
+}
