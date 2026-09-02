@@ -16,6 +16,13 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
     return text.replace(old, new, 1)
 
 
+def replace_first(text: str, old: str, new: str, label: str) -> str:
+    n = text.count(old)
+    if n < 1:
+        raise SystemExit(f"{label}: anchor not found")
+    return text.replace(old, new, 1)
+
+
 def regex_once(text: str, pattern: str, repl, label: str) -> str:
     rx = re.compile(pattern, re.S)
     matches = list(rx.finditer(text))
@@ -168,19 +175,19 @@ def patch_main(path: Path) -> None:
         '\tif !fedora && (f.kbLayout == "" || f.kbLayout == "us") {\n',
         "hide Fedora console/login keyboard toggles",
     )
-    s = replace_once(
+    s = replace_first(
         s,
         '\tif len(f.otherNet) > 0 {\n',
         '\tif len(f.otherNet) > 0 && !fedora {\n',
         "hide Fedora network toggle",
     )
-    s = replace_once(
+    s = replace_first(
         s,
         '\tif len(f.rivalPkgs) > 0 {\n',
         '\tif len(f.rivalPkgs) > 0 && !fedora {\n',
         "hide Fedora rival removal",
     )
-    s = replace_once(
+    s = replace_first(
         s,
         '\tif len(f.softUnits) > 0 {\n',
         '\tif len(f.softUnits) > 0 && !fedora {\n',
@@ -194,7 +201,7 @@ def patch_main(path: Path) -> None:
         '\t}\n',
         "hide Fedora AUR",
     )
-    s = replace_once(
+    s = replace_first(
         s,
         '\tif !strings.HasSuffix(f.userShell, "/fish") {\n',
         '\tif !fedora && !strings.HasSuffix(f.userShell, "/fish") {\n',
