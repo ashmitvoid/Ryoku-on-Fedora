@@ -183,3 +183,55 @@ jobs:
             ! grep -q 'not found' /tmp/ldd.txt
           done < <(find /tmp/ryoku-qml/Ryoku/Blobs -name '*.so' -type f)
 
+  fedora44-rpm-spec:
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:44
+    steps:
+      - name: Install RPM validation tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          dnf -y install git rpm-build dnf-plugins-core
+
+      - name: Checkout Fedora port
+        uses: actions/checkout@v4
+
+      - name: Expand Ryoku Hyprland RPM specs
+        shell: bash
+        run: |
+          set -euo pipefail
+          rpmspec -P packaging/hyprland/ryoku-hyprland.spec > /tmp/ryoku-hyprland.expanded.spec
+          rpmspec -P packaging/hyprland/ryoku-xdg-desktop-portal-hyprland.spec > /tmp/ryoku-xdph.expanded.spec
+          test -s /tmp/ryoku-hyprland.expanded.spec
+          test -s /tmp/ryoku-xdph.expanded.spec
+
+      - name: Verify private ABI paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F '/usr/libexec/ryoku-hyprland/vendor' /tmp/ryoku-hyprland.expanded.spec
+          grep -F '/usr/libexec/ryoku-hyprland/vendor' /tmp/ryoku-xdph.expanded.spec
+          ! grep -F '/usr/libexec/hyprland/vendor' /tmp/ryoku-hyprland.expanded.spec
+          ! grep -F '/usr/libexec/hyprland/vendor' /tmp/ryoku-xdph.expanded.spec
+
+      - name: Validate Fedora 44 BuildRequires
+        shell: bash
+        run: |
+          set -euo pipefail
+          for spec in             packaging/hyprland/ryoku-hyprland.spec             packaging/hyprland/ryoku-xdg-desktop-portal-hyprland.spec; do
+            echo "==> BuildRequires for $spec"
+            rpmspec -q --buildrequires "$spec" | sort -u > /tmp/buildrequires.txt
+            missing=0
+            while IFS= read -r req; do
+              [[ -n "$req" ]] || continue
+              if dnf -q repoquery --whatprovides "$req" 2>/dev/null | grep -q .; then
+                printf '[ OK ] %s\n' "$req"
+              else
+                printf '[MISS] %s\n' "$req"
+                missing=1
+              fi
+            done < /tmp/buildrequires.txt
+            (( missing == 0 ))
+          done
+
