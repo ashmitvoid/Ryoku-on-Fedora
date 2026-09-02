@@ -1,0 +1,5 @@
+ok  	ryoku-fedora-prototype	(cached)
+
+Syntax checks:
+install.sh: PASS
+fedora-preflight.sh: PASS
