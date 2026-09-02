@@ -77,3 +77,40 @@ jobs:
               dnf -y builddep "$spec"
               echo "Fedora 44 build dependencies resolve successfully"
             '
+
+  rpm-build:
+    runs-on: ubuntu-latest
+    needs:
+      - source-archive
+      - spec-builddeps
+
+    steps:
+      - name: Checkout Ryoku-on-Fedora
+        uses: actions/checkout@v5
+
+      - name: Build Ryoku Hyprland RPMs on Fedora 44
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/artifacts/hyprland"
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/work" \
+            -w /work \
+            fedora:44 \
+            bash -lc '
+              set -euo pipefail
+              dnf -y -q install rpm-build rpmdevtools dnf5-plugins >/dev/null
+              spec=/work/packaging/hyprland/ryoku-hyprland.spec
+              dnf -y -q builddep "$spec" >/dev/null
+              rpmdev-setuptree
+              cp "$spec" /root/rpmbuild/SPECS/
+              spectool -g -R "$spec"
+              rpmbuild -ba /root/rpmbuild/SPECS/ryoku-hyprland.spec
+              find /root/rpmbuild/RPMS /root/rpmbuild/SRPMS -type f -name "*.rpm" -exec cp -v {} /work/artifacts/hyprland/ \;
+              ls -lh /work/artifacts/hyprland
+            '
+
+      - name: Upload Hyprland RPM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ryoku-hyprland-fedora44-rpms
+          path: artifacts/hyprland/*.rpm
+          if-no-files-found: error
