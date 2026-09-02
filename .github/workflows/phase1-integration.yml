@@ -67,3 +67,37 @@ jobs:
           set -euo pipefail
           test -x /tmp/ryoku-shell-install
           go test -run 'TestFedoraSafePlan|TestFedoraPlanDoesNotOfferHostMutationToggles|TestFedoraSessionDesktop|TestDetectDistro' .
+
+
+  fedora44-package-map:
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:44
+    steps:
+      - name: Install CI prerequisites
+        run: dnf -y install git python3
+
+      - name: Checkout Fedora port
+        uses: actions/checkout@v4
+
+      - name: Derive mapped Fedora packages
+        run: python3 scripts/list-fedora-packages.py prototype/distro.go > /tmp/ryoku-fedora-packages.txt
+
+      - name: Validate package names against Fedora 44 repos
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          while IFS= read -r pkg; do
+            [[ -n "$pkg" ]] || continue
+            if dnf -q repoquery "$pkg" 2>/dev/null | grep -q .; then
+              printf '[ OK ] %s\n' "$pkg"
+            else
+              printf '[MISS] %s\n' "$pkg"
+              missing+=("$pkg")
+            fi
+          done < /tmp/ryoku-fedora-packages.txt
+          if (( ${#missing[@]} )); then
+            printf 'Unresolved Fedora package mappings: %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
