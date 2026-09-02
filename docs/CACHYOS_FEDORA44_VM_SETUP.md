@@ -1,117 +1,120 @@
-# Prepare the Fedora 44 Ryoku validation VM from CachyOS
+# Prepare the Fedora 44 validation VM with Ryoport
 
-This document prepares the disposable VM used by `docs/PHASE1_VM_VALIDATION.md`.
+Ryoku already ships **Ryoport**, its QEMU/KVM machine hub. Use it for the Fedora 44 Phase 1 validation VM instead of installing a second VM frontend such as virt-manager.
 
-Do **not** install the Fedora port on the CachyOS host itself.
+Ryoport is backed by Quickemu/Quickget and QEMU/KVM. It supports local ISO imports, per-machine CPU/RAM/display configuration, normal snapshots, and a reserved **Seal** that can be restored after a destructive test.
 
-## 1. Install the KVM/libvirt tooling on CachyOS
+Do **not** install Ryoku-on-Fedora on the CachyOS/Ryoku host itself.
 
-```fish
-sudo pacman -S --needed qemu-full virt-manager swtpm
+## 1. Open Ryoport
+
+Use the Ryoku keybind:
+
+```text
+Super + Shift + V
 ```
 
-Enable libvirt's QEMU connection:
+or launch it from the app launcher as **Ryoport**.
 
-```fish
-sudo systemctl enable --now libvirtd.socket
+Open:
+
+```text
+Machines
 ```
 
-For VM/domain autostart support it is also safe to enable the service:
+If Ryoport shows an **ENGINE OFFLINE** banner, use its **INSTALL ENGINE** action. Ryoport can manage/import machine definitions without Quickemu, but launching them requires the Quickemu/QEMU engine.
 
-```fish
-sudo systemctl enable --now libvirtd.service
-```
-
-Add your user to the libvirt group:
-
-```fish
-sudo usermod -aG libvirt $USER
-```
-
-Then **log out of Ryoku and log back in** so the new group membership applies.
-
-Confirm:
-
-```fish
-groups
-systemctl status libvirtd.socket --no-pager
-virsh -c qemu:///system list --all
-```
-
-If `libvirt` appears in `groups` and `virsh` returns a VM list without an authorization error, the host is ready.
+If Ryoport says **Virtualization is off**, enable SVM/AMD-V in firmware before continuing.
 
 ## 2. Download Fedora Workstation 44
 
-Use the official Fedora Workstation 44 **x86_64 Live ISO**.
+Download the official Fedora Workstation 44 x86_64 Live ISO.
 
-Fedora currently publishes the Fedora 44 Workstation image with SHA-256:
+Verify the ISO with Fedora's published checksum before using it.
+
+Keep the ISO on the host, for example under:
 
 ```text
-1620295f6a00c27c3208f0c00b8ece4eab1ec69b9002152d97488bf26a426ddf
+~/Downloads/
 ```
 
-After the ISO downloads, verify it. If it is in `~/Downloads`:
+## 3. Create the Fedora VM through the ISO channel
 
-```fish
-cd ~/Downloads
-sha256sum Fedora-Workstation-Live-44-*.x86_64.iso
+In Ryoport:
+
+```text
+Machines
+  → NEW
+  → ISO
 ```
 
-The printed hash must match the value above.
+Use:
 
-## 3. Create the VM in Virtual Machine Manager
-
-Launch:
-
-```fish
-virt-manager
+```text
+Name:       fedora44-ryoku-test
+ISO file:   <Fedora Workstation 44 x86_64 Live ISO>
+Guest type: LINUX
 ```
 
-Create a new VM with **Local install media (ISO image)** and select the Fedora 44 Workstation ISO.
+Press **CREATE**.
 
-Recommended test-machine configuration:
+Ryoport's ISO importer lets Quickemu choose the initial Linux defaults. After the machine appears in **LIBRARY**, select it and tune the machine to approximately:
 
-- OS: Fedora 44
-- Firmware: UEFI / OVMF
-- CPUs: 8 vCPUs
-- RAM: 12 GiB minimum; 16 GiB is comfortable
-- Disk: 80 GiB qcow2
-- Network: libvirt default NAT
-- Video/display: the normal virt-manager SPICE/Virtio defaults are fine
-- Secure Boot: not required for this Phase 1 test
+```text
+CPU:      8 vCPUs
+RAM:      16 GiB
+Disk:     80 GiB or larger
+Display:  WINDOW or SPICE
+UEFI:     enabled
+TPM:      not required
+```
 
-Do not configure GPU passthrough. The purpose of this VM is session/integration validation, not graphics benchmarking.
+No GPU passthrough is required. This VM validates the Ryoku session/integration path, not graphics performance.
 
-## 4. Install Fedora normally
+If SPICE is unavailable on the host, use **WINDOW** mode. Ryoport's plain window mode is sufficient for this test.
 
-Boot the ISO and install **Fedora Workstation 44** normally.
+## 4. First launch and Fedora installation
 
-Important:
+Launch the VM **normally**.
 
-- keep the default Fedora partitioning/boot path
-- keep SELinux enabled
-- keep GNOME and GDM
-- do not install SDDM
-- do not install a third-party Hyprland COPR
-- do not disable Secure Boot/SELinux inside Fedora merely to make Ryoku work
+Do **not** enable Ryoport's **DISPOSABLE** switch during installation. A disposable launch uses Quickemu `--status-quo`, so disk writes disappear at power-off.
 
-After installation, reboot into Fedora and complete the first-login setup.
+Install Fedora Workstation 44 normally.
 
-## 5. Update the clean Fedora VM once
+Keep:
 
-Inside the Fedora VM:
+- Fedora's normal partitioning and boot path
+- GNOME
+- GDM
+- SELinux
+- NetworkManager
+- Fedora's stock kernel
+
+Do not:
+
+- install SDDM
+- install a third-party Hyprland COPR
+- disable SELinux
+- replace Fedora's bootloader
+- add GPU passthrough
+
+After Fedora installation finishes, power the VM off and launch it normally again so it boots from the installed virtual disk.
+
+## 5. Update the clean Fedora guest once
+
+Inside Fedora:
 
 ```bash
 sudo dnf upgrade --refresh
 ```
 
-Reboot if Fedora installs a newer kernel:
+Reboot when appropriate:
 
 ```bash
 sudo reboot
 ```
 
-After reboot, confirm:
+Then confirm:
 
 ```bash
 cat /etc/fedora-release
@@ -120,58 +123,72 @@ systemctl is-enabled gdm.service
 systemctl is-enabled NetworkManager.service
 ```
 
-Expected:
+Expected state:
 
-- Fedora release is 44
-- SELinux is `Enforcing`
-- GDM is enabled
-- NetworkManager is enabled
+- Fedora release 44
+- SELinux `Enforcing`
+- GDM enabled
+- NetworkManager enabled
 
-## 6. Take the clean snapshot
+## 6. Clone the Fedora port but do not install it
 
-Shut the VM down completely.
-
-In virt-manager:
-
-1. Open the Fedora VM.
-2. Open the VM details/snapshot interface.
-3. Create a snapshot named:
-
-```text
-fedora44-clean-before-ryoku
-```
-
-This snapshot is mandatory. If Ryoku damages the VM state, revert to this snapshot instead of attempting to repair the test baseline.
-
-## 7. Clone the Ryoku-on-Fedora test branch inside the VM
-
-Boot Fedora again and install Git:
+Inside the Fedora guest:
 
 ```bash
 sudo dnf install -y git
-```
-
-Then:
-
-```bash
 git clone -b phase1-safe-session https://github.com/ashmitvoid/Ryoku-on-Fedora.git
 cd Ryoku-on-Fedora
+git branch --show-current
 ```
 
-Do **not** run the Ryoku installer yet.
+The branch must be:
+
+```text
+phase1-safe-session
+```
+
+Do not run the Ryoku installer yet.
+
+## 7. Power off and Seal the clean Fedora state
+
+Shut Fedora down completely.
+
+Back in Ryoport, select `fedora44-ryoku-test` and use **SEAL**.
+
+The Seal is Ryoport's reserved golden-state qcow2 snapshot. This is the equivalent of the mandatory clean pre-Ryoku VM snapshot for Phase 1.
+
+The machine must be powered off before treating this Seal as the clean validation baseline.
+
+## 8. Important: normal vs disposable launches
+
+For the actual Ryoku installation/test:
+
+- launch **normally**
+- leave **DISPOSABLE OFF**
+
+We need the Ryoku installation to survive reboot/logout so we can test GDM → Ryoku → GNOME fallback → uninstall.
+
+Use **DISPOSABLE** only for optional exploratory tests where you explicitly want every write discarded at shutdown.
+
+If a destructive Phase 1 test leaves the guest unusable:
+
+1. power it off
+2. select the machine in Ryoport
+3. use **RESTORE SEAL**
+4. launch normally again
+
+The VM should return to the exact clean Fedora state recorded by the Seal.
 
 ## Stop point
 
-At this stage your VM should be:
+The user-side preparation is complete when:
 
-- Fedora 44 Workstation
-- SELinux Enforcing
-- still using GDM
-- still booting the stock Fedora kernel
-- connected to the Internet
-- snapshotted as `fedora44-clean-before-ryoku`
-- checked out to `Ryoku-on-Fedora/phase1-safe-session`
+- Fedora 44 Workstation is installed in Ryoport
+- SELinux is Enforcing
+- GDM and NetworkManager are enabled
+- `Ryoku-on-Fedora/phase1-safe-session` is cloned inside the guest
+- the VM is powered off
+- the clean guest has been **SEALED**
+- no Ryoku-on-Fedora installer has been run
 
-Wait for the `fedora44-rpm-build` CI gate to pass before moving to `docs/PHASE1_VM_VALIDATION.md`.
-
-The next user action after that gate is to download the `ryoku-hyprland-fedora44-rpms` GitHub Actions artifact into this VM and run the repository's guarded compositor installer.
+Only after the Fedora compositor RPM CI gate is green should the destructive Phase 1 sequence in `docs/PHASE1_VM_VALIDATION.md` begin.
