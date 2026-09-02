@@ -168,7 +168,7 @@ var fedoraLinux = &distro{
 		"qt5-wayland":            "qt5-qtwayland",
 		"qt6ct":                  "qt6ct",
 		"adwaita-icon-theme":     "adwaita-icon-theme",
-		"gnome-themes-extra":     "gnome-themes-extra",
+		"gnome-themes-extra":     "",
 		"papirus-icon-theme":     "papirus-icon-theme",
 		"flatpak":                "flatpak",
 		"sddm":                   "",
@@ -213,7 +213,7 @@ var fedoraLinux = &distro{
 		"neovim":             "neovim",
 		"pciutils":           "pciutils",
 		"ripgrep":            "ripgrep",
-		"starship":           "starship",
+		"starship":           "",
 		"zoxide":             "zoxide",
 		"cava":               "cava",
 		"imagemagick":        "ImageMagick",
@@ -234,8 +234,8 @@ var fedoraLinux = &distro{
 
 		// Developer extras.
 		"go":          "golang",
-		"nodejs":      "nodejs",
-		"npm":         "npm",
+		"nodejs":      "nodejs24",
+		"npm":         "nodejs24-npm",
 		"python-pip":  "python3-pip",
 		"python-pipx": "pipx",
 		"mise":        "",
