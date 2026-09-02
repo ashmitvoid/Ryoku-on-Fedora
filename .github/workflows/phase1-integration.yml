@@ -124,3 +124,56 @@ jobs:
             printf 'Unresolved Fedora package mappings: %s\n' "${missing[*]}" >&2
             exit 1
           fi
+
+  fedora44-native-build:
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:44
+    steps:
+      - name: Install Fedora build toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          dnf -y install             git python3 golang gcc gcc-c++ make cmake ninja-build pkgconf-pkg-config             qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qtmultimedia-devel             qt6-qtshadertools-devel qt6-qtsvg-devel qt6-qt5compat-devel qt6-qtwayland-devel
+
+      - name: Checkout Fedora port
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned Ryoku upstream
+        uses: actions/checkout@v4
+        with:
+          repository: neur0map/ryoku-arch
+          ref: 85cd1cbd1f9cd90f72283fbad9094772156ec4f3
+          path: upstream
+
+      - name: Apply Fedora overlay
+        run: python3 scripts/apply-fedora-overlay.py upstream
+
+      - name: Build Ryoku Go components on Fedora 44
+        shell: bash
+        run: |
+          set -euo pipefail
+          for dir in             ryoku/shell/ipc             ryoku/hub/backend             ryoku/rashin/backend             ryoku/cli; do
+            printf '==> go build %s\n' "$dir"
+            (cd "upstream/$dir" && go build ./...)
+          done
+
+      - name: Build Ryoku.Blobs against Fedora Qt
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/ryoku-blobs-build /tmp/ryoku-qml
+          RYOKU_BLOBS_BUILD=/tmp/ryoku-blobs-build             bash upstream/ryoku/shell/plugin/build.sh /tmp/ryoku-qml
+          test -f /tmp/ryoku-qml/Ryoku/Blobs/qmldir
+          find /tmp/ryoku-qml/Ryoku/Blobs -name '*.so' -print -quit | grep -q .
+
+      - name: Verify Fedora QML plugin linkage
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r so; do
+            echo "==> ldd $so"
+            ldd "$so" | tee /tmp/ldd.txt
+            ! grep -q 'not found' /tmp/ldd.txt
+          done < <(find /tmp/ryoku-qml/Ryoku/Blobs -name '*.so' -type f)
+
