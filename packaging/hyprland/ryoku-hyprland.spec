@@ -250,7 +250,7 @@ popd
 # hyprland-protocols and udis86 are already included by the official source
 # archive. Install the protocols into the private dependency prefix.
 pushd subprojects/hyprland-protocols
-meson setup build --prefix="$VENDOR_PREFIX"
+meson setup build --prefix="$VENDOR_PREFIX" --libdir=lib64
 ninja -C build
 ninja -C build install
 popd
@@ -318,17 +318,14 @@ DESTDIR=%{buildroot} cmake --install build
 ln -sf Hyprland %{buildroot}%{_bindir}/hyprland
 
 # Runtime part of the private dependency closure.
-install -d "$VENDOR_DST/lib64" "$VENDOR_DST/lib"
+install -d "$VENDOR_DST/lib64"
 cp -a "$VENDOR_PREFIX"/lib64/lib*.so* "$VENDOR_DST/lib64/" 2>/dev/null || true
-cp -a "$VENDOR_PREFIX"/lib/lib*.so* "$VENDOR_DST/lib/" 2>/dev/null || true
 
 # Development part of the same closure. These files live in a private prefix;
 # plugin specs opt into them via PKG_CONFIG_PATH/CMAKE_PREFIX_PATH.
 cp -a "$VENDOR_PREFIX"/include "$VENDOR_DST/" 2>/dev/null || true
 cp -a "$VENDOR_PREFIX"/lib64/pkgconfig "$VENDOR_DST/lib64/" 2>/dev/null || true
-cp -a "$VENDOR_PREFIX"/lib/pkgconfig "$VENDOR_DST/lib/" 2>/dev/null || true
 cp -a "$VENDOR_PREFIX"/lib64/cmake "$VENDOR_DST/lib64/" 2>/dev/null || true
-cp -a "$VENDOR_PREFIX"/lib/cmake "$VENDOR_DST/lib/" 2>/dev/null || true
 cp -a "$VENDOR_PREFIX"/share "$VENDOR_DST/" 2>/dev/null || true
 
 # Hyprland's generated pc file names the vendored hypr* modules in Requires.
@@ -369,10 +366,11 @@ test -f build/hyprland.pc
 %dir %{_libexecdir}/ryoku-hyprland
 %dir %{_libexecdir}/ryoku-hyprland/vendor
 %{_libexecdir}/ryoku-hyprland/vendor/lib64/*.so*
-%{_libexecdir}/ryoku-hyprland/vendor/lib/*.so*
 %{_datadir}/wayland-sessions/hyprland.desktop
 %{_datadir}/wayland-sessions/hyprland-uwsm.desktop
 %{_datadir}/hypr/
+%exclude %{_datadir}/hypr/hypridle.conf
+%{_datadir}/xdg-desktop-portal/hyprland-portals.conf
 %{_mandir}/man1/Hyprland.1*
 %{_mandir}/man1/hyprctl.1*
 %{_datadir}/bash-completion/completions/hyprctl
@@ -387,9 +385,7 @@ test -f build/hyprland.pc
 %{_datadir}/pkgconfig/hyprland.pc
 %{_libexecdir}/ryoku-hyprland/vendor/include/
 %{_libexecdir}/ryoku-hyprland/vendor/lib64/pkgconfig/
-%{_libexecdir}/ryoku-hyprland/vendor/lib/pkgconfig/
 %{_libexecdir}/ryoku-hyprland/vendor/lib64/cmake/
-%{_libexecdir}/ryoku-hyprland/vendor/lib/cmake/
 %{_libexecdir}/ryoku-hyprland/vendor/share/
 
 %files -n ryoku-hypridle
