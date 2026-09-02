@@ -133,6 +133,6 @@ fi
 
 echo "==> Re-checking Fedora-owned state"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-"$here/verify-fedora-host-preserved.sh" "$before"
+"$here/verify-fedora-host-preserved.sh" "$before" --removed
 
 echo "Phase 1 Ryoku removal completed and Fedora host preservation passed."
