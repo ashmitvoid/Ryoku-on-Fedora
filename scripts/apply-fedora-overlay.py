@@ -265,7 +265,7 @@ def patch_deploy(path: Path) -> None:
         "skip Arch package actuators",
     )
 
-    s = replace_once(
+    s = replace_first(
         s,
         'if command -v sudo >/dev/null 2>&1; then\n',
         'if (( ! host_preserve )) && command -v sudo >/dev/null 2>&1; then\n',
