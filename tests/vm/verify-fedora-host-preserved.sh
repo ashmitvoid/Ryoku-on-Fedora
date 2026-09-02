@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Compare a pre-install Fedora snapshot with the current machine.
-# Only Ryoku's own session/config additions may differ.
-# Usage: verify-fedora-host-preserved.sh <before-state>
+# Usage:
+#   verify-fedora-host-preserved.sh <before-state>
+#   verify-fedora-host-preserved.sh <before-state> --removed
 set -euo pipefail
 
 before="${1:?usage: verify-fedora-host-preserved.sh <before-state> [--removed]}"
@@ -11,7 +12,11 @@ case "$mode" in
   --removed) mode=removed ;;
   *) echo "unknown verification mode: $mode" >&2; exit 2 ;;
 esac
-[[ -r "$before" ]] || { echo "missing state file: $before" >&2; exit 2; }
+
+[[ -r "$before" ]] || {
+  echo "missing state file: $before" >&2
+  exit 2
+}
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 after="$(mktemp)"
@@ -19,17 +24,22 @@ trap 'rm -f "$after"' EXIT
 "$here/capture-fedora-host-state.sh" "$after" >/dev/null
 
 declare -A old now
-while IFS='=' read -r k v; do old["$k"]="$v"; done < "$before"
-while IFS='=' read -r k v; do now["$k"]="$v"; done < "$after"
+while IFS='=' read -r k v; do
+  old["$k"]="$v"
+done < "$before"
+while IFS='=' read -r k v; do
+  now["$k"]="$v"
+done < "$after"
 
 fails=0
+
 check_same() {
   local key="$1" label="$2"
   if [[ "${old[$key]-}" == "${now[$key]-}" ]]; then
     printf '[ OK ] %s\n' "$label"
   else
     printf '[FAIL] %s changed\n       before: %s\n       after:  %s\n'       "$label" "${old[$key]-<missing>}" "${now[$key]-<missing>}"
-    fails=$((fails+1))
+    fails=$((fails + 1))
   fi
 }
 
@@ -51,43 +61,37 @@ check_same loader_entries 'boot loader entries'
 
 session=/usr/share/wayland-sessions/ryoku.desktop
 if [[ "$mode" == installed ]]; then
-  if [[ -f "$session" ]] && grep -q '^X-Ryoku-Fedora-Port=true
-if command -v getenforce >/dev/null 2>&1 && [[ $(getenforce) != Enforcing ]]; then
-  printf '[FAIL] SELinux is not Enforcing after installation\n'
-  fails=$((fails+1))
-else
-  printf '[ OK ] SELinux remains Enforcing\n'
-fi
-
-if (( fails )); then
-  printf '\n%d Fedora host-preservation check(s) failed.\n' "$fails" >&2
-  exit 1
-fi
-printf '\nFedora host-preservation contract passed.\n'
- "$session"; then
+  if [[ -f "$session" ]] && grep -q '^X-Ryoku-Fedora-Port=true$' "$session"; then
     printf '[ OK ] Ryoku Wayland session is registered and owned by this port\n'
   else
     printf '[FAIL] managed Ryoku Wayland session is missing or lacks its ownership marker\n'
-    fails=$((fails+1))
+    fails=$((fails + 1))
   fi
 else
   if [[ ! -e "$session" ]]; then
     printf '[ OK ] Ryoku Wayland session was removed\n'
   else
     printf '[FAIL] Ryoku Wayland session still exists after removal\n'
-    fails=$((fails+1))
+    fails=$((fails + 1))
   fi
 fi
 
-if command -v getenforce >/dev/null 2>&1 && [[ $(getenforce) != Enforcing ]]; then
-  printf '[FAIL] SELinux is not Enforcing after installation\n'
-  fails=$((fails+1))
-else
-  printf '[ OK ] SELinux remains Enforcing\n'
+if command -v getenforce >/dev/null 2>&1; then
+  if [[ $(getenforce) == Enforcing ]]; then
+    printf '[ OK ] SELinux remains Enforcing\n'
+  else
+    printf '[FAIL] SELinux is not Enforcing\n'
+    fails=$((fails + 1))
+  fi
 fi
 
 if (( fails )); then
   printf '\n%d Fedora host-preservation check(s) failed.\n' "$fails" >&2
   exit 1
 fi
-printf '\nFedora host-preservation contract passed.\n'
+
+if [[ "$mode" == removed ]]; then
+  printf '\nFedora post-removal host-preservation contract passed.\n'
+else
+  printf '\nFedora host-preservation contract passed.\n'
+fi
