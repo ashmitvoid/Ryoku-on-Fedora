@@ -279,3 +279,93 @@ jobs:
       - name: List generated source RPMs
         run: ls -lh "$HOME/rpmbuild/SRPMS/"
 
+  fedora44-rpm-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    container:
+      image: fedora:44
+    steps:
+      - name: Install RPM build tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          dnf -y install             git rpm-build rpmdevtools dnf-plugins-core             cpio binutils findutils
+
+      - name: Checkout Fedora port
+        uses: actions/checkout@v4
+
+      - name: Prepare rpmbuild tree and dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/rpmbuild"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
+          dnf -y builddep packaging/hyprland/ryoku-hyprland.spec
+          dnf -y builddep packaging/hyprland/ryoku-xdg-desktop-portal-hyprland.spec
+
+      - name: Build Ryoku Hyprland RPMs
+        shell: bash
+        run: |
+          set -euo pipefail
+          spec=packaging/hyprland/ryoku-hyprland.spec
+          spectool -g -R "$spec"
+          cp "$spec" "$HOME/rpmbuild/SPECS/"
+          rpmbuild -ba "$HOME/rpmbuild/SPECS/ryoku-hyprland.spec"
+
+      - name: Build Ryoku Hyprland portal RPM
+        shell: bash
+        run: |
+          set -euo pipefail
+          spec=packaging/hyprland/ryoku-xdg-desktop-portal-hyprland.spec
+          spectool -g -R "$spec"
+          cp "$spec" "$HOME/rpmbuild/SPECS/"
+          rpmbuild -ba "$HOME/rpmbuild/SPECS/ryoku-xdg-desktop-portal-hyprland.spec"
+
+      - name: Verify RPM dependency isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          hypr="$(find "$HOME/rpmbuild/RPMS" -name 'ryoku-hyprland-*.rpm' -type f | head -n1)"
+          portal="$(find "$HOME/rpmbuild/RPMS" -name 'ryoku-xdg-desktop-portal-hyprland-*.rpm' -type f | head -n1)"
+          test -n "$hypr"
+          test -n "$portal"
+
+          echo "==> ryoku-hyprland provides"
+          rpm -qp --provides "$hypr" | tee /tmp/hypr-provides
+          ! grep -E 'lib(aquamarine|hyprutils|hyprlang|hyprcursor|hyprgraphics|hyprwayland-scanner|hyprwire).*\.so' /tmp/hypr-provides
+
+          echo "==> ryoku-hyprland requires"
+          rpm -qp --requires "$hypr" | tee /tmp/hypr-requires
+          ! grep -E '^lib(aquamarine|hyprutils|hyprlang|hyprcursor|hyprgraphics|hyprwayland-scanner|hyprwire).*\.so' /tmp/hypr-requires
+
+          echo "==> portal requires"
+          rpm -qp --requires "$portal" | tee /tmp/portal-requires
+          grep -F 'ryoku-hyprland = 0.56.2-1.fc44' /tmp/portal-requires
+          ! grep -E '^lib(hyprutils|hyprlang|hyprwayland-scanner).*\.so' /tmp/portal-requires
+
+      - name: Verify RPM ELF RUNPATHs
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/hypr-rpm /tmp/portal-rpm
+          mkdir -p /tmp/hypr-rpm /tmp/portal-rpm
+          hypr="$(find "$HOME/rpmbuild/RPMS" -name 'ryoku-hyprland-*.rpm' -type f | head -n1)"
+          portal="$(find "$HOME/rpmbuild/RPMS" -name 'ryoku-xdg-desktop-portal-hyprland-*.rpm' -type f | head -n1)"
+          (cd /tmp/hypr-rpm && rpm2cpio "$hypr" | cpio -idmu)
+          (cd /tmp/portal-rpm && rpm2cpio "$portal" | cpio -idmu)
+
+          readelf -d /tmp/hypr-rpm/usr/bin/Hyprland | tee /tmp/hypr-readelf
+          grep -F 'ryoku-hyprland/vendor' /tmp/hypr-readelf
+
+          portal_bin=/tmp/portal-rpm/usr/libexec/xdg-desktop-portal-hyprland
+          readelf -d "$portal_bin" | tee /tmp/portal-readelf
+          grep -F '/usr/libexec/ryoku-hyprland/vendor' /tmp/portal-readelf
+
+      - name: Upload Fedora 44 compositor RPMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ryoku-hyprland-fedora44-rpms
+          path: |
+            /root/rpmbuild/RPMS/**/*.rpm
+            /root/rpmbuild/SRPMS/*.src.rpm
+          if-no-files-found: error
+
