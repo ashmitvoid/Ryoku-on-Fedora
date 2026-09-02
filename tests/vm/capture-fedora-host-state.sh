@@ -44,7 +44,9 @@ hash_path() {
   fi
 
   value kernel_running uname -r
-  value kernel_packages rpm -qa 'kernel*'
+  printf 'kernel_packages='
+  rpm -qa 'kernel*' 2>/dev/null | sort | tr '\n' ' ' | sed -E 's/[[:space:]]+$//'
+  printf '\n'
   value selinux_mode getenforce
   value selinux_config grep -E '^[[:space:]]*SELINUX=' /etc/selinux/config
   value default_target systemctl get-default
