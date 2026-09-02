@@ -486,6 +486,11 @@ DesktopNames=Hyprland
 EOF
 fi
 
+# Ryoku owns the Fedora login-session identity. Do not expose upstream's raw
+# Hyprland/UWSM session entries; the installer registers ryoku.desktop only
+# after the host-preservation checks and qylock setup are ready.
+rm -f   %{buildroot}%{_datadir}/wayland-sessions/hyprland.desktop   %{buildroot}%{_datadir}/wayland-sessions/hyprland-uwsm.desktop
+
 # Install vendored runtime libs into private prefix
 VENDOR_DST=%{buildroot}%{_libexecdir}/%{name}/vendor
 install -d "$VENDOR_DST/lib64" "$VENDOR_DST/lib"
@@ -521,9 +526,8 @@ rm -rf %{buildroot}%{_datadir}/glaze
 # Vendored libraries
 %dir %{_libexecdir}/%{name}
 %{_libexecdir}/%{name}/vendor/
-# Desktop entries
-%{_datadir}/wayland-sessions/hyprland.desktop
-%{_datadir}/wayland-sessions/hyprland-uwsm.desktop
+# Login-session identity is intentionally supplied by Ryoku-on-Fedora's
+# installer as /usr/share/wayland-sessions/ryoku.desktop.
 # Data files (exclude subpackage configs to avoid ownership conflicts)
 %{_datadir}/hypr/
 %exclude %{_datadir}/hypr/hyprlock.conf
