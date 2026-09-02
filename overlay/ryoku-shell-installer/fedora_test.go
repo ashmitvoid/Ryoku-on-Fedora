@@ -114,10 +114,15 @@ func TestRuntimePayloadPatch(t *testing.T) {
 		t.Fatalf("patch Fedora deploy: %v", err)
 	}
 	for _, want := range []string{
-		"host_preserve=\"${RYOKU_HOST_PRESERVE:-0}\"",
+		"host_preserve=\\\"${RYOKU_HOST_PRESERVE:-0}\\\"",
 		"if (( ! host_preserve )) && command -v sudo",
+		"skipped Arch hardware/container actuators",
 		"skipped Arch package actuators",
-		"pkg-config --modversion Qt6Core",
+		"installed Fedora safety wrapper around Arch system-management CLI commands",
+		"update|doctor|recovery|rollback|snapshots|track|deploy|security-key|keyboard",
+		"qtpaths6 --qt-version",
+		"if (( ! host_preserve )) && command -v makepkg",
+		"keeping host portal policy untouched",
 	} {
 		if !strings.Contains(patched, want) {
 			t.Fatalf("runtime payload patch missing %q", want)
