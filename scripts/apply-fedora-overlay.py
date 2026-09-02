@@ -169,6 +169,16 @@ def patch_engine(path: Path) -> None:
 
     s = replace_once(
         s,
+        'func stepConfigs(e *engine) error {\n',
+        'func stepConfigs(e *engine) error {\n'
+        '\tif isFedoraHost(e.f) {\n'
+        '\t\treturn stepConfigsFedora(e)\n'
+        '\t}\n',
+        "Fedora narrow config finalizer",
+    )
+
+    s = replace_once(
+        s,
         'func stepDoctor(e *engine) error {\n'
         '\t// doctor converges snapper (btrfs only), NVIDIA modeset, greeter perms,\n',
         'func stepDoctor(e *engine) error {\n'
