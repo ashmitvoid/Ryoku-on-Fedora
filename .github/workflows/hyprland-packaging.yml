@@ -54,3 +54,26 @@ jobs:
               echo "top-level subprojects:"
               find "$root/subprojects" -mindepth 1 -maxdepth 1 -printf "%f\n" | sort
             '
+
+  spec-builddeps:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Ryoku-on-Fedora
+        uses: actions/checkout@v5
+
+      - name: Validate RPM spec and resolve Fedora 44 build dependencies
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/work:ro" \
+            -w /work \
+            fedora:44 \
+            bash -lc '
+              set -euo pipefail
+              dnf -y -q install rpm-build dnf5-plugins >/dev/null
+              spec=packaging/hyprland/ryoku-hyprland.spec
+              rpmspec -P "$spec" > /tmp/ryoku-hyprland.expanded.spec
+              echo "RPM spec parses successfully"
+              dnf -y builddep "$spec"
+              echo "Fedora 44 build dependencies resolve successfully"
+            '
