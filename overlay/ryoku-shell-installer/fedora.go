@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+const fedoraPinnedUpstream = "85cd1cbd1f9cd90f72283fbad9094772156ec4f3"
 const fedoraSessionPath = "/usr/share/wayland-sessions/ryoku.desktop"
 const fedoraSessionMarker = "X-Ryoku-Fedora-Port=true"
 
@@ -45,6 +46,75 @@ func payloadSparsePathsFor(d *distro) []string {
 		"system/containers",
 	)
 	return out
+}
+
+func stepPayloadFedora(e *engine) error {
+	if e.payloadOverride != "" {
+		e.payload = e.payloadOverride
+		if _, err := os.Stat(filepath.Join(e.payload, "ryoku/lockscreen/install-qylock")); err != nil && !e.dry {
+			return fmt.Errorf("payload override %s does not look like a ryoku-arch checkout", e.payload)
+		}
+		e.say("using Fedora payload override " + e.payload)
+		return prepareFedoraPayload(e)
+	}
+
+	cache := os.Getenv("XDG_CACHE_HOME")
+	if cache == "" {
+		cache = filepath.Join(e.f.homeDir, ".cache")
+	}
+	e.payload = filepath.Join(cache, "ryoku-shell-install/repo")
+
+	if e.dry {
+		e.say("DRYRUN: fetch pinned Ryoku payload " + fedoraPinnedUpstream)
+		return prepareFedoraPayload(e)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(e.payload), 0o755); err != nil {
+		return err
+	}
+	if _, err := os.Stat(filepath.Join(e.payload, ".git")); err != nil {
+		if err := os.RemoveAll(e.payload); err != nil {
+			return err
+		}
+		if err := os.MkdirAll(e.payload, 0o755); err != nil {
+			return err
+		}
+		if err := e.cmd(e.payload, nil, "git", "init"); err != nil {
+			return err
+		}
+		if err := e.cmd(e.payload, nil, "git", "remote", "add", "origin", repoURL); err != nil {
+			return err
+		}
+	} else {
+		if err := e.cmd(e.payload, nil, "git", "remote", "set-url", "origin", repoURL); err != nil {
+			return err
+		}
+	}
+
+	if err := e.cmd(e.payload, nil, "git", "fetch", "--depth=1", "origin", fedoraPinnedUpstream); err != nil {
+		return err
+	}
+	if err := e.cmd(e.payload, nil, "git", "sparse-checkout", "init", "--cone"); err != nil {
+		return err
+	}
+	paths := payloadSparsePathsFor(e.d())
+	if err := e.cmd(e.payload, nil, "git", append([]string{"sparse-checkout", "set"}, paths...)...); err != nil {
+		return err
+	}
+	if err := e.cmd(e.payload, nil, "git", "checkout", "-f", "FETCH_HEAD"); err != nil {
+		return err
+	}
+
+	for _, rel := range []string{
+		"system/packages/base.packages",
+		"ryoku/shell/deploy.sh",
+		"ryoku/lockscreen/install-qylock",
+	} {
+		if _, err := os.Stat(filepath.Join(e.payload, rel)); err != nil {
+			return fmt.Errorf("pinned Fedora payload is incomplete (missing %s): %w", rel, err)
+		}
+	}
+	return prepareFedoraPayload(e)
 }
 
 func fedoraSessionDesktop() string {
