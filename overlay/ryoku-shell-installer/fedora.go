@@ -263,8 +263,89 @@ func patchFedoraDeployText(s string) (string, error) {
 
 	s, err = fedoraReplaceOnce(s,
 		"install -Dm644 \"$here/portals/hyprland-portals.conf\" \"$cfg/xdg-desktop-portal/hyprland-portals.conf\"\n",
-		"if (( ! host_preserve )) || (command -v rpm >/dev/null 2>&1 && rpm -q xdg-desktop-portal-hyprland >/dev/null 2>&1); then\n  install -Dm644 \"$here/portals/hyprland-portals.conf\" \"$cfg/xdg-desktop-portal/hyprland-portals.conf\"\nelse\n  say \"host-preserving mode: xdg-desktop-portal-hyprland is absent; keeping host portal policy untouched\"\nfi\n",
+		"if (( ! host_preserve )); then\n  install -Dm644 \"$here/portals/hyprland-portals.conf\" \"$cfg/xdg-desktop-portal/hyprland-portals.conf\"\nelse\n  say \"host-preserving mode: keeping the host user portal policy untouched\"\nfi\n",
 		"portal policy")
+	if err != nil {
+		return "", err
+	}
+
+
+	s, err = fedoraReplaceOnce(s,
+		"install -Dm644 \"$here/../apps/spicetify/ryoku-canvas.js\" \"$cfg/spicetify/Extensions/ryoku-canvas.js\"\nsay \"installed ryoku-canvas spicetify extension\"\n",
+		"if (( ! host_preserve )); then\n  install -Dm644 \"$here/../apps/spicetify/ryoku-canvas.js\" \"$cfg/spicetify/Extensions/ryoku-canvas.js\"\n  say \"installed ryoku-canvas spicetify extension\"\nelse\n  say \"host-preserving mode: skipped Spicetify extension injection\"\nfi\n",
+		"Spicetify injection")
+	if err != nil {
+		return "", err
+	}
+
+	s, err = fedoraReplaceOnce(s,
+		"install -Dm644 \"$here/../apps/nautilus/ryoku-stash-menu.py\" \\\n  \"$appshare/nautilus-python/extensions/ryoku-stash-menu.py\"\nsay \"installed nautilus stash menu -> $appshare/nautilus-python/extensions\"\n",
+		"if (( ! host_preserve )); then\n  install -Dm644 \"$here/../apps/nautilus/ryoku-stash-menu.py\" \\\n    \"$appshare/nautilus-python/extensions/ryoku-stash-menu.py\"\n  say \"installed nautilus stash menu -> $appshare/nautilus-python/extensions\"\nelse\n  say \"host-preserving mode: skipped Nautilus extension injection\"\nfi\n",
+		"Nautilus injection")
+	if err != nil {
+		return "", err
+	}
+
+	s, err = fedoraReplaceOnce(s,
+		"cp -a \"$here/../apps/fish/config.fish\" \"$cfg/fish/config.fish\"\nmkdir -p \"$cfg/fish/conf.d\"; cp -a \"$here/../apps/fish/conf.d/.\" \"$cfg/fish/conf.d/\"\nmkdir -p \"$cfg/ryoku-terminal\"; cp -a \"$here/../apps/terminal-shell/.\" \"$cfg/ryoku-terminal/\"\nmkdir -p \"$cfg/bash\"; cp -a \"$here/../apps/bash/.\" \"$cfg/bash/\"\nmkdir -p \"$cfg/zsh\"; cp -a \"$here/../apps/zsh/.\" \"$cfg/zsh/\"\nmkdir -p \"$cfg/qt6ct\"; cp -a \"$here/qt6ct/qt6ct.conf\" \"$cfg/qt6ct/qt6ct.conf\"\n",
+		"mkdir -p \"$cfg/ryoku-terminal\"; cp -a \"$here/../apps/terminal-shell/.\" \"$cfg/ryoku-terminal/\"\nif (( ! host_preserve )); then\n  cp -a \"$here/../apps/fish/config.fish\" \"$cfg/fish/config.fish\"\n  mkdir -p \"$cfg/fish/conf.d\"; cp -a \"$here/../apps/fish/conf.d/.\" \"$cfg/fish/conf.d/\"\n  mkdir -p \"$cfg/bash\"; cp -a \"$here/../apps/bash/.\" \"$cfg/bash/\"\n  mkdir -p \"$cfg/zsh\"; cp -a \"$here/../apps/zsh/.\" \"$cfg/zsh/\"\n  mkdir -p \"$cfg/qt6ct\"; cp -a \"$here/qt6ct/qt6ct.conf\" \"$cfg/qt6ct/qt6ct.conf\"\nelse\n  say \"host-preserving mode: kept Fish/Bash/Zsh/Qt user configuration untouched\"\nfi\n",
+		"shell and Qt user config")
+	if err != nil {
+		return "", err
+	}
+
+	s, err = fedoraReplaceOnce(s,
+		"mkdir -p \"$cfg/gtk-3.0\"; cp -a \"$here/gtk-3.0/settings.ini\" \"$cfg/gtk-3.0/settings.ini\"\nmkdir -p \"$cfg/gtk-4.0\"; cp -a \"$here/gtk-4.0/settings.ini\" \"$cfg/gtk-4.0/settings.ini\"\nmkdir -p \"$cfg/btop\"; cp -a \"$here/../apps/btop/btop.conf\" \"$cfg/btop/btop.conf\"\nmkdir -p \"$cfg/fastfetch\"\ncp -a \"$here/../apps/fastfetch/config.jsonc\" \"$cfg/fastfetch/config.jsonc\"\ninstall -m755 \"$here/../apps/fastfetch/ryoku-fastfetch\" \"$bindir/ryoku-fastfetch\"\nmkdir -p \"$cfg/kitty\"\ncp -a \"$here/../apps/kitty/kitty.conf\" \"$cfg/kitty/kitty.conf\"\ncp -a \"$here/../apps/kitty/current-theme.conf\" \"$cfg/kitty/current-theme.conf\"\nmkdir -p \"$cfg/wireplumber\"; cp -a \"$here/../apps/wireplumber/.\" \"$cfg/wireplumber/\"\n",
+		"install -m755 \"$here/../apps/fastfetch/ryoku-fastfetch\" \"$bindir/ryoku-fastfetch\"\nif (( ! host_preserve )); then\n  mkdir -p \"$cfg/gtk-3.0\"; cp -a \"$here/gtk-3.0/settings.ini\" \"$cfg/gtk-3.0/settings.ini\"\n  mkdir -p \"$cfg/gtk-4.0\"; cp -a \"$here/gtk-4.0/settings.ini\" \"$cfg/gtk-4.0/settings.ini\"\n  mkdir -p \"$cfg/btop\"; cp -a \"$here/../apps/btop/btop.conf\" \"$cfg/btop/btop.conf\"\n  mkdir -p \"$cfg/fastfetch\"; cp -a \"$here/../apps/fastfetch/config.jsonc\" \"$cfg/fastfetch/config.jsonc\"\n  mkdir -p \"$cfg/kitty\"\n  cp -a \"$here/../apps/kitty/kitty.conf\" \"$cfg/kitty/kitty.conf\"\n  cp -a \"$here/../apps/kitty/current-theme.conf\" \"$cfg/kitty/current-theme.conf\"\n  mkdir -p \"$cfg/wireplumber\"; cp -a \"$here/../apps/wireplumber/.\" \"$cfg/wireplumber/\"\nelse\n  say \"host-preserving mode: kept GTK/Btop/Fastfetch/Kitty/WirePlumber user configuration untouched\"\nfi\n",
+		"shared desktop app config")
+	if err != nil {
+		return "", err
+	}
+
+	s, err = fedoraReplaceOnce(s,
+		"systemctl --user try-restart ryogami.service 2>/dev/null || true\n",
+		"if (( ! host_preserve )); then\n  systemctl --user try-restart ryogami.service 2>/dev/null || true\nfi\n",
+		"Ryogami restart")
+	if err != nil {
+		return "", err
+	}
+
+	s, err = fedoraReplaceOnce(s,
+		"systemctl --user enable --now ryoku-ai-usage.timer 2>/dev/null || true\n",
+		"if (( ! host_preserve )); then\n  systemctl --user enable --now ryoku-ai-usage.timer 2>/dev/null || true\nelse\n  say \"host-preserving mode: Ryoku background timers remain disabled outside the Ryoku session\"\nfi\n",
+		"AI usage timer")
+	if err != nil {
+		return "", err
+	}
+
+	s, err = fedoraReplaceOnce(s,
+		"mkdir -p \"$cfg/pip\"; cp -a \"$here/../apps/pip/pip.conf\" \"$cfg/pip/pip.conf\"\n",
+		"if (( ! host_preserve )); then\n  mkdir -p \"$cfg/pip\"; cp -a \"$here/../apps/pip/pip.conf\" \"$cfg/pip/pip.conf\"\nelse\n  say \"host-preserving mode: kept pip user configuration untouched\"\nfi\n",
+		"pip config")
+	if err != nil {
+		return "", err
+	}
+
+	s, err = fedoraReplaceOnce(s,
+		"if command -v sudo >/dev/null 2>&1; then\n  cmp -s \"$here/../apps/mimeapps.list\" /usr/share/applications/mimeapps.list ||\n    sudo install -Dm644 \"$here/../apps/mimeapps.list\" /usr/share/applications/mimeapps.list || true\nfi\n",
+		"if (( ! host_preserve )) && command -v sudo >/dev/null 2>&1; then\n  cmp -s \"$here/../apps/mimeapps.list\" /usr/share/applications/mimeapps.list ||\n    sudo install -Dm644 \"$here/../apps/mimeapps.list\" /usr/share/applications/mimeapps.list || true\nelif (( host_preserve )); then\n  say \"host-preserving mode: kept Fedora system MIME defaults untouched\"\nfi\n",
+		"MIME defaults")
+	if err != nil {
+		return "", err
+	}
+
+	s, err = fedoraReplaceOnce(s,
+		"cp -a \"$here/../apps/chromium-flags.conf\" \"$cfg/chromium-flags.conf\"\n",
+		"if (( ! host_preserve )); then\n  cp -a \"$here/../apps/chromium-flags.conf\" \"$cfg/chromium-flags.conf\"\nelse\n  say \"host-preserving mode: kept Chromium flags untouched\"\nfi\n",
+		"Chromium flags")
+	if err != nil {
+		return "", err
+	}
+
+	s, err = fedoraReplaceOnce(s,
+		"if [[ -f \"$_iconroot/index.theme\" ]] && command -v gtk-update-icon-cache >/dev/null 2>&1; then\n  gtk-update-icon-cache -qtf \"$_iconroot\" 2>/dev/null || true\nelse\n  rm -f \"$_iconroot/icon-theme.cache\" 2>/dev/null || true\nfi\n",
+		"if (( ! host_preserve )); then\n  if [[ -f \"$_iconroot/index.theme\" ]] && command -v gtk-update-icon-cache >/dev/null 2>&1; then\n    gtk-update-icon-cache -qtf \"$_iconroot\" 2>/dev/null || true\n  else\n    rm -f \"$_iconroot/icon-theme.cache\" 2>/dev/null || true\n  fi\nelse\n  say \"host-preserving mode: kept the host user icon cache untouched\"\nfi\n",
+		"user icon cache")
 	if err != nil {
 		return "", err
 	}
