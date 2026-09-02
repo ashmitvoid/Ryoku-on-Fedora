@@ -1,0 +1,106 @@
+name: Fedora port integration
+
+on:
+  push:
+    branches:
+      - main
+      - "feat/**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fedora44-package-resolution:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Ryoku-on-Fedora
+        uses: actions/checkout@v5
+
+      - name: Resolve Fedora adapter packages against Fedora 44
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/work:ro" \
+            -w /work \
+            fedora:44 \
+            bash -lc '
+              set -euo pipefail
+              dnf -y -q install python3 >/dev/null
+              python3 tools/fedora-package-audit.py > /tmp/ryoku-fedora-packages
+              echo "Checking $(wc -l < /tmp/ryoku-fedora-packages) packages against Fedora 44 repositories"
+              failed=0
+              while IFS= read -r pkg; do
+                if dnf -q repoquery "$pkg" 2>/dev/null | grep -q .; then
+                  printf "[ OK ] %s\n" "$pkg"
+                else
+                  printf "[MISS] %s\n" "$pkg"
+                  failed=1
+                fi
+              done < /tmp/ryoku-fedora-packages
+              exit "$failed"
+            '
+
+  installer-integration:
+    runs-on: ubuntu-latest
+    env:
+      RYOKU_UPSTREAM_SHA: 85cd1cbd1f9cd90f72283fbad9094772156ec4f3
+
+    steps:
+      - name: Checkout Ryoku-on-Fedora
+        uses: actions/checkout@v5
+
+      - name: Checkout pinned Ryoku upstream
+        uses: actions/checkout@v5
+        with:
+          repository: neur0map/ryoku-arch
+          ref: ${{ env.RYOKU_UPSTREAM_SHA }}
+          path: upstream
+
+      - name: Set up Go from upstream
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: upstream/ryoku-shell-installer/go.mod
+          cache: false
+
+      - name: Apply Fedora overlay
+        run: python3 patches/apply.py upstream
+
+      - name: Format-check patched Go
+        working-directory: upstream/ryoku-shell-installer
+        run: |
+          gofmt -w distro.go fedora_session.go fedora_test.go engine.go main.go
+          git diff --check
+
+      - name: Run upstream installer tests with Fedora overlay
+        working-directory: upstream/ryoku-shell-installer
+        run: go test ./...
+
+      - name: Build patched installer
+        working-directory: upstream/ryoku-shell-installer
+        run: go build -trimpath -o /tmp/ryoku-shell-install-fedora .
+
+      - name: Upload patched installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ryoku-shell-install-fedora
+          path: /tmp/ryoku-shell-install-fedora
+          if-no-files-found: error
+
+      - name: Validate deploy script
+        run: bash -n upstream/ryoku/shell/deploy.sh
+
+      - name: Enforce Fedora safety gates
+        run: |
+          grep -q 'RYOKU_PORTABLE_HOST' upstream/ryoku/shell/deploy.sh
+          grep -q 'stepSessionFedora' upstream/ryoku-shell-installer/engine.go
+          grep -q 'RYOKU_QYLOCK_USER_ONLY=1' upstream/ryoku-shell-installer/fedora_session.go
+          grep -q 'Name=Ryoku' upstream/ryoku-shell-installer/fedora_session.go
+          ! sed -n '/func stepSessionFedora/,/^}/p' upstream/ryoku-shell-installer/fedora_session.go \
+            | grep -Ev '^[[:space:]]*//' \
+            | grep -E '"/etc/pam.d|"/etc/sddm|wifi.backend'
+
+      - name: Run isolated adapter tests
+        working-directory: prototype
+        run: go test ./...
