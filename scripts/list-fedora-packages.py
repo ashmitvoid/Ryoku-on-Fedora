@@ -11,23 +11,40 @@ def main() -> None:
     text = path.read_text()
 
     start = text.index("var fedoraLinux = &distro{")
-    end = text.index("\n}\n\n// activeDistro", start)
-    block = text[start:end]
+    end = text.index("// activeDistro", start)
+    lines = text[start:end].splitlines()
 
     packages: set[str] = set()
+    mode: str | None = None
+    saw_build = False
+    saw_rename = False
 
-    build_match = re.search(r'build:\s*\[\]string\{(.*?)\n\s*\},', block, re.S)
-    if not build_match:
+    for line in lines:
+        stripped = line.strip()
+
+        if stripped.startswith("build: []string{"):
+            mode = "build"
+            saw_build = True
+            continue
+        if stripped.startswith("rename: map[string]string{"):
+            mode = "rename"
+            saw_rename = True
+            continue
+        if mode and stripped == "},":
+            mode = None
+            continue
+
+        if mode == "build":
+            packages.update(re.findall(r'"([^"]+)"', line))
+        elif mode == "rename":
+            m = re.match(r'\s*"[^"]+"\s*:\s*"([^"]*)"', line)
+            if m and m.group(1):
+                packages.add(m.group(1))
+
+    if not saw_build:
         raise SystemExit("could not find Fedora build package list")
-    packages.update(re.findall(r'"([^"]+)"', build_match.group(1)))
-
-    rename_match = re.search(r'rename:\s*map\[string\]string\{(.*)\n\s*\},\n$', block, re.S)
-    if not rename_match:
+    if not saw_rename:
         raise SystemExit("could not find Fedora rename map")
-    for line in rename_match.group(1).splitlines():
-        m = re.match(r'\s*"[^"]+"\s*:\s*"([^"]*)"', line)
-        if m and m.group(1):
-            packages.add(m.group(1))
 
     for p in sorted(packages):
         print(p)
