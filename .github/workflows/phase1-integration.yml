@@ -52,6 +52,7 @@ jobs:
           bash -n tests/vm/capture-fedora-host-state.sh
           bash -n tests/vm/verify-fedora-host-preserved.sh
           bash -n tests/vm/install-compositor-rpms.sh
+          bash -n tests/vm/remove-phase1.sh
 
       - name: Verify host-preserving gates exist
         shell: bash
