@@ -1,0 +1,67 @@
+name: Fedora port integration
+
+on:
+  push:
+    branches:
+      - main
+      - "feat/**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installer-integration:
+    runs-on: ubuntu-latest
+    env:
+      RYOKU_UPSTREAM_SHA: 85cd1cbd1f9cd90f72283fbad9094772156ec4f3
+
+    steps:
+      - name: Checkout Ryoku-on-Fedora
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned Ryoku upstream
+        uses: actions/checkout@v4
+        with:
+          repository: neur0map/ryoku-arch
+          ref: ${{ env.RYOKU_UPSTREAM_SHA }}
+          path: upstream
+
+      - name: Set up Go from upstream
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: upstream/ryoku-shell-installer/go.mod
+          cache: false
+
+      - name: Apply Fedora overlay
+        run: python3 patches/apply.py upstream
+
+      - name: Format-check patched Go
+        working-directory: upstream/ryoku-shell-installer
+        run: |
+          gofmt -w distro.go fedora_session.go fedora_test.go engine.go main.go
+          git diff --check
+
+      - name: Run upstream installer tests with Fedora overlay
+        working-directory: upstream/ryoku-shell-installer
+        run: go test ./...
+
+      - name: Build patched installer
+        working-directory: upstream/ryoku-shell-installer
+        run: go build -trimpath -o /tmp/ryoku-shell-install-fedora .
+
+      - name: Validate deploy script
+        run: bash -n upstream/ryoku/shell/deploy.sh
+
+      - name: Enforce Fedora safety gates
+        run: |
+          grep -q 'RYOKU_PORTABLE_HOST' upstream/ryoku/shell/deploy.sh
+          grep -q 'stepSessionFedora' upstream/ryoku-shell-installer/engine.go
+          grep -q 'RYOKU_QYLOCK_USER_ONLY=1' upstream/ryoku-shell-installer/fedora_session.go
+          grep -q 'Name=Ryoku' upstream/ryoku-shell-installer/fedora_session.go
+          ! grep -A80 'func stepSessionFedora' upstream/ryoku-shell-installer/fedora_session.go | grep -E '/etc/pam.d|/etc/sddm|wifi.backend'
+
+      - name: Run isolated adapter tests
+        working-directory: prototype
+        run: go test ./...
