@@ -423,7 +423,7 @@ cmake --build build --parallel %{_smp_build_ncpus}
 # No separate build step needed - it inherits glaze and other settings from parent
 
 # 12) hyprlock (screen lock utility, needs OpenGL/EGL)
-SUBPKG_RPATH='%{_libexecdir}/hyprland/vendor/lib64:%{_libexecdir}/hyprland/vendor/lib'
+SUBPKG_RPATH='%{_libexecdir}/%{name}/vendor/lib64:%{_libexecdir}/%{name}/vendor/lib'
 pushd hyprlock-%{hyprlock_version}
 cmake -B build \
   -DCMAKE_BUILD_TYPE=Release \
