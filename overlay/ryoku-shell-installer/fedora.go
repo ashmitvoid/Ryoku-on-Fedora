@@ -27,6 +27,8 @@ func enforceFedoraSafePlan(f *facts, p *plan) {
 	p.aur = false
 	p.fish = false
 	p.greeter = false
+	p.azertyFR = false
+	p.azertyBE = false
 }
 
 func payloadSparsePathsFor(d *distro) []string {
@@ -176,6 +178,86 @@ func stepSessionFedora(e *engine) error {
 	return nil
 }
 
+
+func stepConfigsFedora(e *engine) error {
+	enforceFedoraSafePlan(e.f, e.p)
+	e.say("Fedora host-preserving mode: skipping broad ryoku materialize; finalizing Ryoku-owned config only")
+
+	// deploy.sh already laid the Ryoku Hyprland and Quickshell trees. Keep this
+	// step deliberately narrow so GNOME/KDE-facing ~/.config files remain owned
+	// by the existing Fedora desktop.
+	hyprDir := filepath.Join(e.f.homeDir, ".config/hypr")
+	if !e.dry {
+		if st, err := os.Stat(hyprDir); err != nil || !st.IsDir() {
+			return fmt.Errorf("Fedora Ryoku config is missing after source deploy: %s", hyprDir)
+		}
+	}
+
+	// Preserve a detected monitor layout only inside Ryoku's Hyprland config.
+	if e.p.monPins && len(e.f.monOutputs) > 0 {
+		pins, skipped := renderPins(e.f.monOutputs, e.f.monSource == "hyprland", e.f.monSource)
+		for _, name := range skipped {
+			e.sayf("note: %s output %q needs a connector pin in monitors_user.lua", e.f.monSource, name)
+		}
+		if pins != "" {
+			mu := filepath.Join(hyprDir, "monitors_user.lua")
+			if e.dry {
+				e.say("DRYRUN: write Ryoku-only monitor pins to ~/.config/hypr/monitors_user.lua")
+			} else if _, err := os.Lstat(mu); os.IsNotExist(err) {
+				if err := os.WriteFile(mu, []byte(pins), 0o644); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	// Carry a non-default keyboard layout into the Ryoku session only. Fedora's
+	// console, GDM, PAM and Xorg keyboard policy remain untouched.
+	if e.f.kbLayout != "" && (e.f.kbLayout != "us" || e.f.kbVariant != "" || e.f.kbOptions != "") {
+		kb := filepath.Join(hyprDir, "keyboard.lua")
+		if e.dry {
+			e.say("DRYRUN: seed Ryoku-only keyboard layout in ~/.config/hypr/keyboard.lua")
+		} else if _, err := os.Lstat(kb); os.IsNotExist(err) {
+			clean := func(v string) string {
+				return strings.NewReplacer("\"", "", "\\", "").Replace(v)
+			}
+			content := "-- keyboard layout carried into the Ryoku session by Ryoku-on-Fedora\n" +
+				"hl.config({\n    input = {\n        kb_layout = \"" + clean(e.f.kbLayout) + "\",\n" +
+				"        kb_variant = \"" + clean(e.f.kbVariant) + "\",\n" +
+				"        kb_options = \"" + clean(e.f.kbOptions) + "\",\n    },\n})\n"
+			if err := os.WriteFile(kb, []byte(content), 0o644); err != nil {
+				return err
+			}
+		}
+	}
+
+	stubs := []struct{ rel, content string }{
+		{"monitors_user.lua", "-- hand-pinned displays; pins here win.\n"},
+		{"user.lua", "-- your Ryoku Hyprland overrides.\n"},
+		{"theme.lua", "-- owned by Ryoku Settings.\n"},
+		{"settings.lua", "-- owned by Ryoku Settings.\n"},
+		{"modules/private.lua", "-- optional private Ryoku module.\n"},
+		{"ghosttype.lua", "-- owned by ghosttype when installed.\n"},
+	}
+	for _, stub := range stubs {
+		p := filepath.Join(hyprDir, stub.rel)
+		if e.dry {
+			e.say("DRYRUN: stub ~/.config/hypr/" + stub.rel + " if absent")
+			continue
+		}
+		if _, err := os.Lstat(p); err == nil {
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(p, []byte(stub.content), 0o644); err != nil {
+			return err
+		}
+	}
+
+	return e.cmd("", nil, "systemctl", "--user", "daemon-reload")
+}
 
 func fedoraReplaceOnce(s, old, new, label string) (string, error) {
 	if n := strings.Count(s, old); n != 1 {
