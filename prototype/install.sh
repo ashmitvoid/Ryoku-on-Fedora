@@ -29,6 +29,7 @@ main() {
   command -v curl >/dev/null 2>&1 || die "curl is required"
 
   if [[ -r /etc/os-release ]]; then
+    # shellcheck source=/dev/null
     . /etc/os-release
     case "${ID:-} ${ID_LIKE:-}" in
       *arch*|*debian*|*fedora*) ;;
