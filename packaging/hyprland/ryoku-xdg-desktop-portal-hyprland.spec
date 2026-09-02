@@ -120,7 +120,7 @@ popd
 
 # 5) xdg-desktop-portal-hyprland
 # RUNPATH points to hyprland's vendor libs (installed by hyprland package)
-VENDOR_RPATH='%{_libexecdir}/hyprland/vendor/lib64:%{_libexecdir}/hyprland/vendor/lib'
+VENDOR_RPATH='%{_libexecdir}/ryoku-hyprland/vendor/lib64:%{_libexecdir}/ryoku-hyprland/vendor/lib'
 cmake -B build \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX=%{_prefix} \
