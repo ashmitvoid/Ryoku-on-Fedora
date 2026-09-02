@@ -16,14 +16,14 @@ func TestFedoraSafePlan(t *testing.T) {
 	}
 	p := defaultPlan(f)
 
-	if p.nvidia || p.switchDM || p.switchNet || p.rivals || p.softOff || p.aur || p.fish || p.greeter {
+	if p.nvidia || p.switchDM || p.switchNet || p.rivals || p.softOff || p.aur || p.fish || p.greeter || p.azertyFR || p.azertyBE {
 		t.Fatalf("Fedora default plan crossed host-preserving boundary: %+v", *p)
 	}
 
-	p.nvidia, p.switchDM, p.switchNet, p.rivals, p.softOff, p.aur, p.fish, p.greeter =
-		true, true, true, true, true, true, true, true
+	p.nvidia, p.switchDM, p.switchNet, p.rivals, p.softOff, p.aur, p.fish, p.greeter, p.azertyFR, p.azertyBE =
+		true, true, true, true, true, true, true, true, true, true
 	enforceFedoraSafePlan(f, p)
-	if p.nvidia || p.switchDM || p.switchNet || p.rivals || p.softOff || p.aur || p.fish || p.greeter {
+	if p.nvidia || p.switchDM || p.switchNet || p.rivals || p.softOff || p.aur || p.fish || p.greeter || p.azertyFR || p.azertyBE {
 		t.Fatalf("Fedora plan normalization failed: %+v", *p)
 	}
 }
