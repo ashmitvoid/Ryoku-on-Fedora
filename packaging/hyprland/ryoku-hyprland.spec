@@ -29,9 +29,12 @@
 # Build assets release (udis86, glaze tarballs - only changes when these deps update)
 %global build_assets_release    v0.54-fedora
 
-# Exclude auto-requires for vendored Hyprland libraries
-# These are built from source and installed in /usr/libexec/ryoku-hyprland/vendor/
-%global __requires_exclude pkgconfig\\((aquamarine|hyprutils|hyprlang|hyprcursor|hyprgraphics|hyprwayland-scanner|hyprland-protocols|hyprwire)\\)
+# The vendored ABI is private to Ryoku. Do not advertise its SONAMEs as
+# Fedora-global Provides, and do not make the package transaction resolve those
+# private SONAMEs through Fedora's older hypr* packages. The executables carry a
+# RUNPATH into this package's private vendor directory.
+%global __provides_exclude_from ^%{_libexecdir}/ryoku-hyprland/vendor/.*$
+%global __requires_exclude ^(pkgconfig\\((aquamarine|hyprutils|hyprlang|hyprcursor|hyprgraphics|hyprwayland-scanner|hyprland-protocols|hyprwire)\\)|lib(aquamarine|hyprutils|hyprlang|hyprcursor|hyprgraphics|hyprwayland-scanner|hyprwire)\\.so)
 
 Name:           ryoku-hyprland
 Version:        %{hyprland_version}
@@ -183,9 +186,11 @@ Requires:       xorg-x11-server-Xwayland
 Requires:       libffi
 # NEW: muparser for math expressions in config (0.53.0)
 Requires:       muParser
-# Subpackages (installed by default via weak deps, removable individually)
-Recommends:     hyprlock
-Recommends:     hypridle
+# hyprlock/hypridle are built as optional companion RPMs, but are deliberately
+# not weak dependencies of the compositor. Phase 1 uses Ryoku's qylock user
+# lockscreen and must not add /etc/pam.d/hyprlock just because Hyprland was
+# installed. hypridle will be enabled only after its Fedora runtime policy is
+# audited separately.
 
 %description
 Hyprland is a dynamic tiling Wayland compositor with modern Wayland features,
