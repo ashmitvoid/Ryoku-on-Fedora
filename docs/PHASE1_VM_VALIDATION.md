@@ -26,7 +26,27 @@ Use Fedora 44 Workstation x86_64 with:
 
 The Phase 1 installer currently expects a usable Hyprland binary. Until the Ryoku-owned Hyprland RPM/COPR stack is ready, this remains the deliberate external blocker for a fully reproducible clean-VM install.
 
-## 1. Preflight
+## 1. Capture the untouched Fedora baseline
+
+Do this **before** installing the Ryoku compositor RPMs:
+
+```bash
+mkdir -p ~/.local/state/ryoku-fedora-test
+bash tests/vm/capture-fedora-host-state.sh \
+  ~/.local/state/ryoku-fedora-test/before.state
+```
+
+## 2. Install the Ryoku compositor artifact
+
+Extract the `ryoku-hyprland-fedora44-rpms` artifact from a fully green CI run, then install only the compositor and portal:
+
+```bash
+bash tests/vm/install-compositor-rpms.sh /path/to/extracted-rpm-artifact
+```
+
+The helper disables weak dependencies and refuses to proceed if another Hyprland package is already installed. In particular, `hyprlock` must **not** be pulled in because M1 uses qylock and the Fedora PAM tree must remain unchanged.
+
+## 3. Preflight
 
 From a checkout of this repository's `phase1-safe-session` branch:
 
@@ -34,15 +54,7 @@ From a checkout of this repository's `phase1-safe-session` branch:
 bash prototype/fedora-preflight.sh
 ```
 
-Do not continue past a blocker.
-
-## 2. Capture the Fedora-owned baseline
-
-```bash
-mkdir -p ~/.local/state/ryoku-fedora-test
-bash tests/vm/capture-fedora-host-state.sh \
-  ~/.local/state/ryoku-fedora-test/before.state
-```
+Do not continue past a blocker. At this point Hyprland and the Hyprland portal should come from the Ryoku RPM stack.
 
 The state file records hashes/identities for:
 
@@ -55,7 +67,7 @@ The state file records hashes/identities for:
 - `/etc/pam.d`
 - Fedora GRUB/EFI/loader state
 
-## 3. Installer dry run
+## 5. Installer dry run
 
 Use the integrated Fedora installer artifact from a green `Phase 1 Fedora integration` workflow, or build the same overlay locally.
 
@@ -100,7 +112,7 @@ X-Ryoku-Fedora-Port=true
 
 The source deployment should otherwise remain user-scoped and stage the Ryoku configuration without reloading the currently running GNOME session.
 
-## 5. Verify Fedora host preservation before logout
+## 6. Verify Fedora host preservation before logout
 
 ```bash
 bash tests/vm/verify-fedora-host-preserved.sh \
@@ -109,7 +121,7 @@ bash tests/vm/verify-fedora-host-preserved.sh \
 
 This must pass with SELinux still Enforcing.
 
-## 6. Login test
+## 7. Login test
 
 Log out normally. In GDM's session selector choose **Ryoku**.
 
@@ -128,7 +140,7 @@ Validate:
 
 Expected degraded Phase 1 features are acceptable when their Fedora backend is deliberately absent, especially Hyprland compositor plugins and the Hyprland portal backend.
 
-## 7. Fedora fallback test
+## 8. Fedora fallback test
 
 From GDM, log into **GNOME** again.
 
@@ -141,7 +153,7 @@ bash tests/vm/verify-fedora-host-preserved.sh \
   ~/.local/state/ryoku-fedora-test/before.state
 ```
 
-## 8. CLI safety test
+## 9. CLI safety test
 
 These commands are intentionally blocked in Phase 1 because their upstream implementations currently orchestrate Arch system policy:
 
