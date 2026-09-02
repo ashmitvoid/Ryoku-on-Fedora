@@ -47,8 +47,17 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'RYOKU_HOST_PRESERVE=1' upstream/ryoku-shell-installer/engine.go
+          grep -F 'skipping automatic full-system upgrade' upstream/ryoku-shell-installer/engine.go
+          grep -F 'not removing host packages or disabling existing desktop daemons' upstream/ryoku-shell-installer/engine.go
+          grep -F 'keeping ~/.config/xdg-desktop-portal in place' upstream/ryoku-shell-installer/engine.go
+          grep -F -- '"--no-reload"' upstream/ryoku-shell-installer/engine.go
           grep -F 'if (( ! host_preserve )) && command -v sudo' upstream/ryoku/shell/deploy.sh
+          grep -F 'skipped Arch hardware/container actuators' upstream/ryoku/shell/deploy.sh
           grep -F 'skipped Arch package actuators' upstream/ryoku/shell/deploy.sh
+          grep -F 'installed Fedora safety wrapper around Arch system-management CLI commands' upstream/ryoku/shell/deploy.sh
+          grep -F 'qtpaths6 --qt-version' upstream/ryoku/shell/deploy.sh
+          grep -F 'if (( ! host_preserve )) && command -v makepkg' upstream/ryoku/shell/deploy.sh
+          grep -F 'keeping host portal policy untouched' upstream/ryoku/shell/deploy.sh
           grep -F 'X-Ryoku-Fedora-Port=true' upstream/ryoku-shell-installer/fedora.go
           grep -F 'skipping ryoku doctor until Fedora-aware reconcilers land' upstream/ryoku-shell-installer/engine.go
 
