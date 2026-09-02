@@ -214,9 +214,25 @@ func patchFedoraDeployText(s string) (string, error) {
 	}
 
 	s, err = fedoraReplaceOnce(s,
+		"for s in \"$here/../../system/hardware\"/*/ryoku-* \"$here/../../system/containers\"/ryoku-*; do\n  [[ -f $s && -x $s ]] || continue\n  install -m755 \"$s\" \"$bindir/${s##*/}\"\ndone\n",
+		"if (( ! host_preserve )); then\n  for s in \"$here/../../system/hardware\"/*/ryoku-* \"$here/../../system/containers\"/ryoku-*; do\n    [[ -f $s && -x $s ]] || continue\n    install -m755 \"$s\" \"$bindir/${s##*/}\"\n  done\nelse\n  say \"host-preserving mode: skipped Arch hardware/container actuators\"\nfi\n",
+		"hardware actuators")
+	if err != nil {
+		return "", err
+	}
+
+	s, err = fedoraReplaceOnce(s,
 		"for s in \"$here/../../system/extras\"/ryoku-*; do\n  install -m755 \"$s\" \"$bindir/${s##*/}\"\ndone\n# the extras actuator (renamed from ryoku-extras-install); the ryoku-* glob\n# above no longer matches it, so install it by name.\ninstall -m755 \"$here/../../system/extras/ryostore-install\" \"$bindir/ryostore-install\"\n",
 		"if (( ! host_preserve )); then\n  for s in \"$here/../../system/extras\"/ryoku-*; do\n    install -m755 \"$s\" \"$bindir/${s##*/}\"\n  done\n  install -m755 \"$here/../../system/extras/ryostore-install\" \"$bindir/ryostore-install\"\nelse\n  say \"host-preserving mode: skipped Arch package actuators (RyoStore system installs stay disabled)\"\nfi\n",
 		"Arch package actuators")
+	if err != nil {
+		return "", err
+	}
+
+	s, err = fedoraReplaceOnce(s,
+		"install -m755 \"$here/../cli/ryoku\" \"$bindir/ryoku\"\n",
+		"install -m755 \"$here/../cli/ryoku\" \"$bindir/ryoku\"\nif (( host_preserve )); then\n  mv -f \"$bindir/ryoku\" \"$bindir/ryoku.real\"\n  cat > \"$bindir/ryoku\" <<'EOF'\n#!/usr/bin/env bash\nset -euo pipefail\ncase \"${1:-}\" in\n  update|doctor|recovery|rollback|snapshots|track|deploy|security-key|keyboard)\n    printf 'ryoku: %s is temporarily disabled by Ryoku-on-Fedora Phase 1; Fedora still owns system management.\\n' \"${1:-command}\" >&2\n    exit 2\n    ;;\nesac\nexec \"$(dirname \"$0\")/ryoku.real\" \"$@\"\nEOF\n  chmod 0755 \"$bindir/ryoku\"\n  say \"installed Fedora safety wrapper around Arch system-management CLI commands\"\nfi\n",
+		"Fedora CLI guard")
 	if err != nil {
 		return "", err
 	}
@@ -231,8 +247,24 @@ func patchFedoraDeployText(s string) (string, error) {
 
 	s, err = fedoraReplaceOnce(s,
 		"qtver=\"$(pacman -Q qt6-base 2>/dev/null | awk '{print $2}')\"\n",
-		"qtver=\"$(pkg-config --modversion Qt6Core 2>/dev/null || pacman -Q qt6-base 2>/dev/null | awk '{print $2}')\"\n",
+		"qtver=\"\"\nif command -v qtpaths6 >/dev/null 2>&1; then\n  qtver=\"$(qtpaths6 --qt-version 2>/dev/null || true)\"\nelif pkg-config --exists Qt6Core 2>/dev/null; then\n  qtver=\"$(pkg-config --modversion Qt6Core 2>/dev/null || true)\"\nelif command -v pacman >/dev/null 2>&1; then\n  qtver=\"$(pacman -Q qt6-base 2>/dev/null | awk '{print $2}')\"\nfi\n",
 		"Qt version detection")
+	if err != nil {
+		return "", err
+	}
+
+	s, err = fedoraReplaceOnce(s,
+		"if command -v makepkg >/dev/null 2>&1 && pkg-config --exists hyprland 2>/dev/null; then\n",
+		"if (( ! host_preserve )) && command -v makepkg >/dev/null 2>&1 && pkg-config --exists hyprland 2>/dev/null; then\n",
+		"Hyprland plugin packaging")
+	if err != nil {
+		return "", err
+	}
+
+	s, err = fedoraReplaceOnce(s,
+		"install -Dm644 \"$here/portals/hyprland-portals.conf\" \"$cfg/xdg-desktop-portal/hyprland-portals.conf\"\n",
+		"if (( ! host_preserve )) || (command -v rpm >/dev/null 2>&1 && rpm -q xdg-desktop-portal-hyprland >/dev/null 2>&1); then\n  install -Dm644 \"$here/portals/hyprland-portals.conf\" \"$cfg/xdg-desktop-portal/hyprland-portals.conf\"\nelse\n  say \"host-preserving mode: xdg-desktop-portal-hyprland is absent; keeping host portal policy untouched\"\nfi\n",
+		"portal policy")
 	if err != nil {
 		return "", err
 	}
