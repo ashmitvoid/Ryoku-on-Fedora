@@ -1,0 +1,56 @@
+name: Hyprland packaging probe
+
+on:
+  push:
+    paths:
+      - "packaging/hyprland/**"
+      - ".github/workflows/hyprland-packaging.yml"
+  pull_request:
+    paths:
+      - "packaging/hyprland/**"
+      - ".github/workflows/hyprland-packaging.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-archive:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Ryoku-on-Fedora
+        uses: actions/checkout@v5
+
+      - name: Inspect official Hyprland v0.56.2 source archive
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/work" \
+            -w /work \
+            fedora:44 \
+            bash -lc '
+              set -euo pipefail
+              dnf -y -q install curl tar gzip coreutils findutils >/dev/null
+              url="https://github.com/hyprwm/Hyprland/releases/download/v0.56.2/source-v0.56.2.tar.gz"
+              curl -fL --retry 3 -o /tmp/hyprland.tar.gz "$url"
+              echo "03ad3f5ef152ff44116ffd56fcf808486211ecabf4f0ba567108ee746ba5cd2e  /tmp/hyprland.tar.gz" | sha256sum -c -
+              mkdir /tmp/src
+              tar -xzf /tmp/hyprland.tar.gz -C /tmp/src
+              root="$(find /tmp/src -mindepth 1 -maxdepth 1 -type d | head -n1)"
+              test -n "$root"
+              echo "archive root: $root"
+
+              for path in \
+                subprojects/hyprland-protocols \
+                subprojects/udis86
+              do
+                if test -e "$root/$path"; then
+                  echo "[PRESENT] $path"
+                else
+                  echo "[MISSING] $path"
+                fi
+              done
+
+              echo "top-level subprojects:"
+              find "$root/subprojects" -mindepth 1 -maxdepth 1 -printf "%f\n" | sort
+            '
