@@ -73,38 +73,12 @@ def patch_engine(path: Path) -> None:
 
     s = replace_once(
         s,
-        '\t\te.say("using payload checkout " + e.payload)\n'
-        '\t\treturn nil\n'
-        '\t}\n'
-        '\tcache := os.Getenv("XDG_CACHE_HOME")\n',
-        '\t\te.say("using payload checkout " + e.payload)\n'
-        '\t\tif isFedoraHost(e.f) {\n'
-        '\t\t\treturn prepareFedoraPayload(e)\n'
-        '\t\t}\n'
-        '\t\treturn nil\n'
-        '\t}\n'
-        '\tcache := os.Getenv("XDG_CACHE_HOME")\n',
-        "prepare Fedora payload override",
-    )
-
-    s = replace_once(
-        s,
-        '\t\treturn e.cmd(e.payload, nil, "git", append([]string{"sparse-checkout", "set"}, sparsePaths...)...)\n'
-        '\t}\n'
-        '\treturn nil\n'
-        '}\n\n'
-        '// paths under $HOME',
-        '\t\tif err := e.cmd(e.payload, nil, "git", append([]string{"sparse-checkout", "set"}, sparsePaths...)...); err != nil {\n'
-        '\t\t\treturn err\n'
-        '\t\t}\n'
-        '\t}\n'
+        'func stepPayload(e *engine) error {\n',
+        'func stepPayload(e *engine) error {\n'
         '\tif isFedoraHost(e.f) {\n'
-        '\t\treturn prepareFedoraPayload(e)\n'
-        '\t}\n'
-        '\treturn nil\n'
-        '}\n\n'
-        '// paths under $HOME',
-        "prepare fresh Fedora payload",
+        '\t\treturn stepPayloadFedora(e)\n'
+        '\t}\n',
+        "pinned Fedora payload dispatch",
     )
 
     s = replace_once(
