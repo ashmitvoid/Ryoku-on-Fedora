@@ -27,8 +27,9 @@ def main() -> None:
     installer = upstream / "ryoku-shell-installer"
     engine = installer / "engine.go"
     main_go = installer / "main.go"
+    distro_test = installer / "distro_test.go"
     deploy = upstream / "ryoku" / "shell" / "deploy.sh"
-    for p in (engine, main_go, deploy):
+    for p in (engine, main_go, distro_test, deploy):
         if not p.is_file():
             raise SystemExit(f"missing upstream file: {p}")
 
@@ -39,6 +40,14 @@ def main() -> None:
                  installer / "fedora_session.go")
     shutil.copy2(root / "overlay" / "ryoku-shell-installer" / "fedora_test.go",
                  installer / "fedora_test.go")
+
+    # Upstream's baseline test intentionally treats Fedora as unsupported.
+    # Change only that expectation; all other upstream tests remain untouched.
+    replace_once(
+        distro_test,
+        '{"fedora", "", ""},',
+        '{"fedora", "", "fedora"},',
+    )
 
     # defaultPlan: Fedora's initial port is additive. --yes must not switch the
     # DM/network/GPU stack, remove rival shells, disable user daemons, install AUR
