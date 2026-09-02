@@ -56,9 +56,13 @@ jobs:
         working-directory: upstream/ryoku-shell-installer
         run: go test ./...
 
-      - name: Build integrated installer
+      - name: Build portable integrated installer
         working-directory: upstream/ryoku-shell-installer
-        run: go build -trimpath -o /tmp/ryoku-shell-install .
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          go build -trimpath -o /tmp/ryoku-shell-install .
+          sha256sum /tmp/ryoku-shell-install > /tmp/ryoku-shell-install.sha256
 
       - name: Smoke-test Fedora dry-run plan
         working-directory: upstream/ryoku-shell-installer
@@ -66,7 +70,17 @@ jobs:
         run: |
           set -euo pipefail
           test -x /tmp/ryoku-shell-install
-          go test -run 'TestFedoraSafePlan|TestFedoraPlanDoesNotOfferHostMutationToggles|TestFedoraSessionDesktop|TestDetectDistro' .
+          go test -run 'TestFedoraSafePlan|TestFedoraPlanDoesNotOfferHostMutationToggles|TestFedoraSessionDesktop|TestRuntimePayloadPatch|TestFedoraPayloadIsPinned|TestDetectDistro' .
+
+      - name: Upload Fedora 44 Phase 1 installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ryoku-shell-install-fedora44-phase1
+          path: |
+            /tmp/ryoku-shell-install
+            /tmp/ryoku-shell-install.sha256
+          if-no-files-found: error
+          retention-days: 14
 
 
   fedora44-package-map:
