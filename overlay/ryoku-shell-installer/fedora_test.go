@@ -114,7 +114,7 @@ func TestRuntimePayloadPatch(t *testing.T) {
 		t.Fatalf("patch Fedora deploy: %v", err)
 	}
 	for _, want := range []string{
-		"host_preserve=\\\"${RYOKU_HOST_PRESERVE:-0}\\\"",
+		"host_preserve=\"${RYOKU_HOST_PRESERVE:-0}\"",
 		"if (( ! host_preserve )) && command -v sudo",
 		"skipped Arch hardware/container actuators",
 		"skipped Arch package actuators",
