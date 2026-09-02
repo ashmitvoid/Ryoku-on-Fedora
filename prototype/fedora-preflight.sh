@@ -57,7 +57,7 @@ critical_pkgs=(
   NetworkManager
   pipewire
   wireplumber
-  sddm
+  selinux-policy
 )
 
 if command -v dnf >/dev/null 2>&1; then
@@ -77,7 +77,7 @@ fi
 if command -v Hyprland >/dev/null 2>&1; then
   pass "Hyprland present: $(Hyprland --version 2>/dev/null | head -n1 || printf unknown)"
 else
-  nope 'Hyprland is not installed; Phase 1 currently treats this as a blocker rather than pulling an arbitrary third-party COPR'
+  nope 'Hyprland is not installed; Phase 1 currently treats this as a blocker until the Ryoku-owned Fedora Hyprland RPM/COPR stack is ready'
 fi
 
 if command -v qs >/dev/null 2>&1; then
