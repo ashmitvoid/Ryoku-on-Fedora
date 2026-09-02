@@ -345,6 +345,11 @@ jobs:
           test -n "$hypr"
           test -n "$portal"
 
+          echo "==> ryoku-hyprland contents"
+          rpm -qlp "$hypr" | tee /tmp/hypr-files
+          ! grep -F '/usr/share/wayland-sessions/hyprland.desktop' /tmp/hypr-files
+          ! grep -F '/usr/share/wayland-sessions/hyprland-uwsm.desktop' /tmp/hypr-files
+
           echo "==> ryoku-hyprland provides"
           rpm -qp --provides "$hypr" | tee /tmp/hypr-provides
           ! grep -E 'lib(aquamarine|hyprutils|hyprlang|hyprcursor|hyprgraphics|hyprwayland-scanner|hyprwire).*\.so' /tmp/hypr-provides
