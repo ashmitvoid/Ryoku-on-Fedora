@@ -361,6 +361,26 @@ jobs:
           readelf -d "$portal_bin" | tee /tmp/portal-readelf
           grep -F '/usr/libexec/ryoku-hyprland/vendor' /tmp/portal-readelf
 
+      - name: Test Fedora 44 RPM install transaction
+        shell: bash
+        run: |
+          set -euo pipefail
+          hypr="$(find "$HOME/rpmbuild/RPMS" -name 'ryoku-hyprland-*.rpm' -type f | head -n1)"
+          portal="$(find "$HOME/rpmbuild/RPMS" -name 'ryoku-xdg-desktop-portal-hyprland-*.rpm' -type f | head -n1)"
+          dnf -y install --setopt=install_weak_deps=False "$hypr" "$portal"
+
+          rpm -q ryoku-hyprland
+          rpm -q ryoku-xdg-desktop-portal-hyprland
+          ! rpm -q hyprlock
+          ! rpm -q hypridle
+
+          Hyprland --version
+          command -v hyprctl
+          test -x /usr/libexec/xdg-desktop-portal-hyprland
+
+          ! ldd /usr/bin/Hyprland | grep -q 'not found'
+          ! ldd /usr/libexec/xdg-desktop-portal-hyprland | grep -q 'not found'
+
       - name: Upload Fedora 44 compositor RPMs
         uses: actions/upload-artifact@v4
         with:
