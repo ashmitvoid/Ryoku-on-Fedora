@@ -131,3 +131,11 @@ func TestRuntimePayloadPatch(t *testing.T) {
 		t.Fatal("runtime payload patch changed an already patched deploy.sh")
 	}
 }
+
+
+func TestFedoraPayloadIsPinned(t *testing.T) {
+	const want = "85cd1cbd1f9cd90f72283fbad9094772156ec4f3"
+	if fedoraPinnedUpstream != want {
+		t.Fatalf("Fedora payload moved: got %s want %s", fedoraPinnedUpstream, want)
+	}
+}
