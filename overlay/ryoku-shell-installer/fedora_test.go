@@ -122,7 +122,15 @@ func TestRuntimePayloadPatch(t *testing.T) {
 		"update|doctor|recovery|rollback|snapshots|track|deploy|security-key|keyboard",
 		"qtpaths6 --qt-version",
 		"if (( ! host_preserve )) && command -v makepkg",
-		"keeping host portal policy untouched",
+		"keeping the host user portal policy untouched",
+		"kept Fish/Bash/Zsh/Qt user configuration untouched",
+		"kept GTK/Btop/Fastfetch/Kitty/WirePlumber user configuration untouched",
+		"skipped Nautilus extension injection",
+		"skipped Spicetify extension injection",
+		"Ryoku background timers remain disabled outside the Ryoku session",
+		"kept Fedora system MIME defaults untouched",
+		"kept Chromium flags untouched",
+		"kept the host user icon cache untouched",
 	} {
 		if !strings.Contains(patched, want) {
 			t.Fatalf("runtime payload patch missing %q", want)
