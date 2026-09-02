@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -448,6 +449,20 @@ def main() -> None:
     for p in required:
         if not p.exists():
             raise SystemExit(f"not a Ryoku checkout (missing {p})")
+
+    try:
+        head = subprocess.check_output(
+            ["git", "-C", str(root), "rev-parse", "HEAD"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        raise SystemExit("Fedora overlay requires a git checkout of the pinned Ryoku upstream")
+
+    if head != PINNED_UPSTREAM:
+        raise SystemExit(
+            f"refusing to patch Ryoku {head}; this overlay is pinned to {PINNED_UPSTREAM}"
+        )
 
     # The Fedora distro table is maintained as a readable complete file in this
     # repository; the rest of the integration is deliberately small overlays.
