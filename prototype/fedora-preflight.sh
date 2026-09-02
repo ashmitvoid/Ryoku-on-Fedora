@@ -44,6 +44,8 @@ if command -v getenforce >/dev/null 2>&1; then
   esac
 fi
 
+# Packages that are already known to exist in Fedora 44's official repositories
+# and are central to the source-build path.
 critical_pkgs=(
   quickshell
   qt6-qtbase-devel
@@ -69,6 +71,9 @@ if command -v dnf >/dev/null 2>&1; then
   done
 fi
 
+# The first source-port milestone deliberately requires Hyprland to exist before
+# the installer mutates anything. The production port will replace this with a
+# Ryoku-owned RPM/COPR compositor stack so plugin ABI stays deterministic.
 if command -v Hyprland >/dev/null 2>&1; then
   pass "Hyprland present: $(Hyprland --version 2>/dev/null | head -n1 || printf unknown)"
 else
