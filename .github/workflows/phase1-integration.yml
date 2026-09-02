@@ -235,3 +235,47 @@ jobs:
             (( missing == 0 ))
           done
 
+  fedora44-rpm-source-prep:
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:44
+    steps:
+      - name: Install SRPM tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          dnf -y install git rpm-build rpmdevtools patch tar gzip xz
+
+      - name: Checkout Fedora port
+        uses: actions/checkout@v4
+
+      - name: Prepare rpmbuild tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/rpmbuild"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
+
+      - name: Fetch and prep Ryoku Hyprland sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          spec=packaging/hyprland/ryoku-hyprland.spec
+          spectool -g -R "$spec"
+          cp "$spec" "$HOME/rpmbuild/SPECS/"
+          rpmbuild -bs "$HOME/rpmbuild/SPECS/ryoku-hyprland.spec" --nodeps
+          rpmbuild -bp "$HOME/rpmbuild/SPECS/ryoku-hyprland.spec" --nodeps
+
+      - name: Fetch and prep Ryoku portal sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$HOME/rpmbuild/BUILD"/*
+          spec=packaging/hyprland/ryoku-xdg-desktop-portal-hyprland.spec
+          spectool -g -R "$spec"
+          cp "$spec" "$HOME/rpmbuild/SPECS/"
+          rpmbuild -bs "$HOME/rpmbuild/SPECS/ryoku-xdg-desktop-portal-hyprland.spec" --nodeps
+          rpmbuild -bp "$HOME/rpmbuild/SPECS/ryoku-xdg-desktop-portal-hyprland.spec" --nodeps
+
+      - name: List generated source RPMs
+        run: ls -lh "$HOME/rpmbuild/SRPMS/"
+
