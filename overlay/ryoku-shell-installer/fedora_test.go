@@ -101,3 +101,32 @@ func TestSourcePayloadIncludesDeployInputs(t *testing.T) {
 		}
 	}
 }
+
+
+func TestRuntimePayloadPatch(t *testing.T) {
+	b, err := os.ReadFile("../ryoku/shell/deploy.sh")
+	if err != nil {
+		t.Fatalf("read upstream deploy.sh: %v", err)
+	}
+	patched, err := patchFedoraDeployText(string(b))
+	if err != nil {
+		t.Fatalf("patch Fedora deploy: %v", err)
+	}
+	for _, want := range []string{
+		"host_preserve=\"${RYOKU_HOST_PRESERVE:-0}\"",
+		"if (( ! host_preserve )) && command -v sudo",
+		"skipped Arch package actuators",
+		"pkg-config --modversion Qt6Core",
+	} {
+		if !strings.Contains(patched, want) {
+			t.Fatalf("runtime payload patch missing %q", want)
+		}
+	}
+	again, err := patchFedoraDeployText(patched)
+	if err != nil {
+		t.Fatalf("runtime payload patch is not idempotent: %v", err)
+	}
+	if again != patched {
+		t.Fatal("runtime payload patch changed an already patched deploy.sh")
+	}
+}
