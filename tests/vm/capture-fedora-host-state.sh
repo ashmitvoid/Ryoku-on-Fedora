@@ -6,6 +6,7 @@ set -euo pipefail
 out="${1:?usage: capture-fedora-host-state.sh <output>}"
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
+trap 'rc=$?; printf "capture-fedora-host-state: failed at line %d (exit %d)\n" "$LINENO" "$rc" >&2; exit "$rc"' ERR
 
 value() {
   local key="$1"; shift
@@ -24,22 +25,40 @@ value() {
 
 hash_path() {
   local key="$1" path="$2"
-  if [[ -e "$path" || -L "$path" ]]; then
-    if [[ -d "$path" && ! -L "$path" ]]; then
-      printf '%s=' "$key"
-      find "$path" -xdev -type f -print0 2>/dev/null |
-        sort -z |
-        xargs -0r sha256sum 2>/dev/null |
-        sha256sum | awk '{print $1}'
-    elif [[ -L "$path" ]]; then
-      printf '%s=symlink:%s\n' "$key" "$(readlink "$path")"
-    else
-      printf '%s=' "$key"
-      sha256sum "$path" | awk '{print $1}'
-    fi
-  else
+  local digest
+
+  if [[ ! -e "$path" && ! -L "$path" ]]; then
     printf '%s=absent\n' "$key"
+    return 0
   fi
+
+  if [[ -L "$path" ]]; then
+    printf '%s=symlink:%s\n' "$key" "$(readlink "$path")"
+    return 0
+  fi
+
+  if [[ -d "$path" ]]; then
+    # Fedora keeps parts of /boot and some policy directories root-readable
+    # only. Hash them through sudo without mutating anything.
+    if digest="$(
+      sudo find "$path" -xdev -type f -exec sha256sum {} + 2>/dev/null |
+        LC_ALL=C sort |
+        sha256sum |
+        awk '{print $1}'
+    )"; then
+      printf '%s=%s\n' "$key" "$digest"
+    else
+      return $?
+    fi
+    return 0
+  fi
+
+  if [[ -r "$path" ]]; then
+    digest="$(sha256sum "$path" | awk '{print $1}')"
+  else
+    digest="$(sudo sha256sum "$path" | awk '{print $1}')"
+  fi
+  printf '%s=%s\n' "$key" "$digest"
 }
 
 {
