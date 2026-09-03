@@ -9,9 +9,17 @@ trap 'rm -f "$tmp"' EXIT
 
 value() {
   local key="$1"; shift
-  printf '%s=' "$key"
-  "$@" 2>/dev/null | tr '\n' ' ' | sed -E 's/[[:space:]]+$//'
-  printf '\n'
+  local text rc=0
+  if text="$("$@" 2>/dev/null)"; then
+    rc=0
+  else
+    rc=$?
+  fi
+  text="$(printf '%s' "$text" | tr '\n' ' ' | sed -E 's/[[:space:]]+$//')"
+  if [[ -z "$text" && $rc -ne 0 ]]; then
+    text="status:$rc"
+  fi
+  printf '%s=%s\n' "$key" "$text"
 }
 
 hash_path() {
@@ -55,7 +63,8 @@ hash_path() {
   if [[ -L /etc/systemd/system/display-manager.service ]]; then
     readlink /etc/systemd/system/display-manager.service
   else
-    systemctl status display-manager.service --no-pager 2>/dev/null |
+    dm_status="$(systemctl status display-manager.service --no-pager 2>/dev/null || true)"
+    printf '%s\n' "$dm_status" |
       sed -n 's/.*Loaded: loaded (\([^;]*\).*/\1/p' | head -n1
   fi
 
