@@ -394,7 +394,8 @@ jobs:
           ! rpm -q hyprlock
           ! rpm -q hypridle
 
-          Hyprland --version
+          install -d -m 0700 /tmp/ryoku-ci-runtime
+          XDG_RUNTIME_DIR=/tmp/ryoku-ci-runtime Hyprland --version
           command -v hyprctl
           test -x /usr/libexec/xdg-desktop-portal-hyprland
 
