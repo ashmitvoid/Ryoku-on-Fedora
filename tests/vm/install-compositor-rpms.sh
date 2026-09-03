@@ -23,10 +23,10 @@ if command -v getenforce >/dev/null 2>&1 && [[ $(getenforce) != Enforcing ]]; th
 fi
 
 mapfile -t hypr_candidates < <(
-  find "$dir" -type f -name 'ryoku-hyprland-*.x86_64.rpm' | sort
+  find "$dir" -type f -name 'ryoku-hyprland-[0-9]*.x86_64.rpm' | sort
 )
 mapfile -t portal_candidates < <(
-  find "$dir" -type f -name 'ryoku-xdg-desktop-portal-hyprland-*.x86_64.rpm' | sort
+  find "$dir" -type f -name 'ryoku-xdg-desktop-portal-hyprland-[0-9]*.x86_64.rpm' | sort
 )
 
 (( ${#hypr_candidates[@]} == 1 )) || {
