@@ -402,12 +402,20 @@ jobs:
           ! ldd /usr/bin/Hyprland | grep -q 'not found'
           ! ldd /usr/libexec/xdg-desktop-portal-hyprland | grep -q 'not found'
 
+      - name: Stage Fedora 44 compositor RPM artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$GITHUB_WORKSPACE/artifacts/rpms"
+          mkdir -p "$GITHUB_WORKSPACE/artifacts/rpms"
+          find "$HOME/rpmbuild/RPMS" "$HOME/rpmbuild/SRPMS" -type f \( -name '*.rpm' -o -name '*.src.rpm' \) -exec cp -v {} "$GITHUB_WORKSPACE/artifacts/rpms/" \;
+          test -n "$(find "$GITHUB_WORKSPACE/artifacts/rpms" -type f -name 'ryoku-hyprland-[0-9]*.x86_64.rpm' -print -quit)"
+          test -n "$(find "$GITHUB_WORKSPACE/artifacts/rpms" -type f -name 'ryoku-xdg-desktop-portal-hyprland-[0-9]*.x86_64.rpm' -print -quit)"
+
       - name: Upload Fedora 44 compositor RPMs
         uses: actions/upload-artifact@v4
         with:
           name: ryoku-hyprland-fedora44-rpms
-          path: |
-            /root/rpmbuild/RPMS/**/*.rpm
-            /root/rpmbuild/SRPMS/*.src.rpm
+          path: artifacts/rpms/
           if-no-files-found: error
 
