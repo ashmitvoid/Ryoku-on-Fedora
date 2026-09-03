@@ -2,13 +2,15 @@
 # Compare a pre-install Fedora snapshot with the current machine.
 # Usage:
 #   verify-fedora-host-preserved.sh <before-state>
+#   verify-fedora-host-preserved.sh <before-state> --compositor-only
 #   verify-fedora-host-preserved.sh <before-state> --removed
 set -euo pipefail
 
-before="${1:?usage: verify-fedora-host-preserved.sh <before-state> [--removed]}"
+before="${1:?usage: verify-fedora-host-preserved.sh <before-state> [--compositor-only|--removed]}"
 mode="${2:-installed}"
 case "$mode" in
   installed) ;;
+  --compositor-only) mode=compositor ;;
   --removed) mode=removed ;;
   *) echo "unknown verification mode: $mode" >&2; exit 2 ;;
 esac
@@ -60,21 +62,52 @@ check_same grub_efi 'Fedora EFI boot files'
 check_same loader_entries 'boot loader entries'
 
 session=/usr/share/wayland-sessions/ryoku.desktop
-if [[ "$mode" == installed ]]; then
-  if [[ -f "$session" ]] && grep -q '^X-Ryoku-Fedora-Port=true$' "$session"; then
-    printf '[ OK ] Ryoku Wayland session is registered and owned by this port\n'
+case "$mode" in
+  installed)
+    if [[ -f "$session" ]] && grep -q '^X-Ryoku-Fedora-Port=true
+if command -v getenforce >/dev/null 2>&1; then
+  if [[ $(getenforce) == Enforcing ]]; then
+    printf '[ OK ] SELinux remains Enforcing\n'
   else
-    printf '[FAIL] managed Ryoku Wayland session is missing or lacks its ownership marker\n'
-    fails=$((fails + 1))
-  fi
-else
-  if [[ ! -e "$session" ]]; then
-    printf '[ OK ] Ryoku Wayland session was removed\n'
-  else
-    printf '[FAIL] Ryoku Wayland session still exists after removal\n'
+    printf '[FAIL] SELinux is not Enforcing\n'
     fails=$((fails + 1))
   fi
 fi
+
+if (( fails )); then
+  printf '\n%d Fedora host-preservation check(s) failed.\n' "$fails" >&2
+  exit 1
+fi
+
+case "$mode" in
+  compositor) printf '\nFedora compositor-only host-preservation contract passed.\n' ;;
+  removed) printf '\nFedora post-removal host-preservation contract passed.\n' ;;
+  *) printf '\nFedora host-preservation contract passed.\n' ;;
+esac
+ "$session"; then
+      printf '[ OK ] Ryoku Wayland session is registered and owned by this port\n'
+    else
+      printf '[FAIL] managed Ryoku Wayland session is missing or lacks its ownership marker\n'
+      fails=$((fails + 1))
+    fi
+    ;;
+  compositor)
+    if [[ ! -e "$session" ]]; then
+      printf '[ OK ] compositor install did not register a login session prematurely\n'
+    else
+      printf '[FAIL] compositor install unexpectedly created %s\n' "$session"
+      fails=$((fails + 1))
+    fi
+    ;;
+  removed)
+    if [[ ! -e "$session" ]]; then
+      printf '[ OK ] Ryoku Wayland session was removed\n'
+    else
+      printf '[FAIL] Ryoku Wayland session still exists after removal\n'
+      fails=$((fails + 1))
+    fi
+    ;;
+esac
 
 if command -v getenforce >/dev/null 2>&1; then
   if [[ $(getenforce) == Enforcing ]]; then
