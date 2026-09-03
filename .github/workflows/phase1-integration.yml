@@ -340,8 +340,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          hypr="$(find "$HOME/rpmbuild/RPMS" -name 'ryoku-hyprland-*.rpm' -type f | head -n1)"
-          portal="$(find "$HOME/rpmbuild/RPMS" -name 'ryoku-xdg-desktop-portal-hyprland-*.rpm' -type f | head -n1)"
+          hypr="$(find "$HOME/rpmbuild/RPMS" -name 'ryoku-hyprland-[0-9]*.x86_64.rpm' -type f | head -n1)"
+          portal="$(find "$HOME/rpmbuild/RPMS" -name 'ryoku-xdg-desktop-portal-hyprland-[0-9]*.x86_64.rpm' -type f | head -n1)"
           test -n "$hypr"
           test -n "$portal"
 
@@ -369,8 +369,8 @@ jobs:
           set -euo pipefail
           rm -rf /tmp/hypr-rpm /tmp/portal-rpm
           mkdir -p /tmp/hypr-rpm /tmp/portal-rpm
-          hypr="$(find "$HOME/rpmbuild/RPMS" -name 'ryoku-hyprland-*.rpm' -type f | head -n1)"
-          portal="$(find "$HOME/rpmbuild/RPMS" -name 'ryoku-xdg-desktop-portal-hyprland-*.rpm' -type f | head -n1)"
+          hypr="$(find "$HOME/rpmbuild/RPMS" -name 'ryoku-hyprland-[0-9]*.x86_64.rpm' -type f | head -n1)"
+          portal="$(find "$HOME/rpmbuild/RPMS" -name 'ryoku-xdg-desktop-portal-hyprland-[0-9]*.x86_64.rpm' -type f | head -n1)"
           (cd /tmp/hypr-rpm && rpm2cpio "$hypr" | cpio -idmu)
           (cd /tmp/portal-rpm && rpm2cpio "$portal" | cpio -idmu)
 
@@ -385,8 +385,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          hypr="$(find "$HOME/rpmbuild/RPMS" -name 'ryoku-hyprland-*.rpm' -type f | head -n1)"
-          portal="$(find "$HOME/rpmbuild/RPMS" -name 'ryoku-xdg-desktop-portal-hyprland-*.rpm' -type f | head -n1)"
+          hypr="$(find "$HOME/rpmbuild/RPMS" -name 'ryoku-hyprland-[0-9]*.x86_64.rpm' -type f | head -n1)"
+          portal="$(find "$HOME/rpmbuild/RPMS" -name 'ryoku-xdg-desktop-portal-hyprland-[0-9]*.x86_64.rpm' -type f | head -n1)"
           dnf -y install --setopt=install_weak_deps=False "$hypr" "$portal"
 
           rpm -q ryoku-hyprland
